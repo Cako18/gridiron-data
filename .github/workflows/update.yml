@@ -1,0 +1,34 @@
+name: Daten-Update
+
+on:
+  schedule:
+    # Taeglich 09:00 UTC (10/11 Uhr deutscher Zeit) - nach den US-Nachtspielen
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}   # manueller Start ueber den Actions-Tab
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Abhaengigkeiten installieren
+        run: pip install pandas
+
+      - name: Daten neu berechnen
+        run: python update_data.py
+
+      - name: Aenderungen committen
+        run: |
+          git config user.name "gridiron-bot"
+          git config user.email "actions@github.com"
+          git add data/app_data.json
+          git diff --cached --quiet && echo "Keine Aenderungen" || git commit -m "Daten-Update $(date -u +%F)"
+          git push
