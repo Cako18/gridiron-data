@@ -179,6 +179,131 @@ def main():
         json.dump(out, f, separators=(",", ":"))
     print(f"OK: data/app_data.json geschrieben ({len(teams)} Teams, {len(sched)} Spiele Saison {current_season})")
 
+    write_history_and_report(teams, sched, current_season)
+
+
+TZ = {"BUF": 0, "MIA": 0, "NE": 0, "NYJ": 0, "NYG": 0, "PHI": 0, "PIT": 0, "BAL": 0,
+      "CIN": 0, "CLE": 0, "WAS": 0, "CAR": 0, "ATL": 0, "JAX": 0, "TB": 0, "IND": 0,
+      "DET": 0, "CHI": -1, "GB": -1, "MIN": -1, "DAL": -1, "HOU": -1, "TEN": -1,
+      "NO": -1, "KC": -1, "DEN": -2, "ARI": -2, "SEA": -3, "SF": -3, "LA": -3,
+      "LAC": -3, "LV": -3}
+
+NAMES = {"ARI": "Cardinals", "ATL": "Falcons", "BAL": "Ravens", "BUF": "Bills",
+         "CAR": "Panthers", "CHI": "Bears", "CIN": "Bengals", "CLE": "Browns",
+         "DAL": "Cowboys", "DEN": "Broncos", "DET": "Lions", "GB": "Packers",
+         "HOU": "Texans", "IND": "Colts", "JAX": "Jaguars", "KC": "Chiefs",
+         "LA": "Rams", "LAC": "Chargers", "LV": "Raiders", "MIA": "Dolphins",
+         "MIN": "Vikings", "NE": "Patriots", "NO": "Saints", "NYG": "Giants",
+         "NYJ": "Jets", "PHI": "Eagles", "PIT": "Steelers", "SEA": "Seahawks",
+         "SF": "49ers", "TB": "Buccaneers", "TEN": "Titans", "WAS": "Commanders"}
+
+
+def predict_game(g, teams, model):
+    h, a = teams.get(g["h"]), teams.get(g["a"])
+    if not h or not a:
+        return None
+    hr, ar = g.get("hr", 7), g.get("ar", 7)
+    hour = 99
+    try:
+        hour = int(str(g.get("t", ""))[:2])
+    except (ValueError, TypeError):
+        pass
+    x = [
+        h["elo"] + model["home_adv_elo"] - a["elo"],
+        h.get("qb", 0) - a.get("qb", 0),
+        h["off_epa"] - a["off_epa"],
+        a["def_epa"] - h["def_epa"],
+        h["cpoe"] - a["cpoe"],
+        hr - ar,
+        a.get("inj", 0) - h.get("inj", 0),
+        a.get("qb_new", 0) - h.get("qb_new", 0),
+        (1 if hr >= 13 else 0) - (1 if ar >= 13 else 0),
+        abs(TZ.get(g["h"], 0) - TZ.get(g["a"], 0)),
+        1 if (TZ.get(g["a"], 0) - TZ.get(g["h"], 0)) <= -2 and hour <= 13 else 0,
+    ]
+    z = model["intercept"]
+    for i, v in enumerate(x):
+        z += model["coef"][i] * ((v - model["mean"][i]) / model["scale"][i])
+    return 1 / (1 + math.exp(-z))
+
+
+def write_history_and_report(teams, sched, season):
+    import csv, os
+    today = datetime.date.today().isoformat()
+
+    # ---------- Elo-Historie fortschreiben (1 Zeile pro Team und Tag) ----------
+    hist_path = "data/elo_history.csv"
+    rows = []
+    if os.path.exists(hist_path):
+        with open(hist_path) as f:
+            rows = [r for r in csv.reader(f)][1:]
+    rows = [r for r in rows if r and r[0] != today]
+    for t, v in sorted(teams.items()):
+        rows.append([today, t, str(round(v["elo"], 1))])
+    with open(hist_path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["date", "team", "elo"])
+        w.writerows(rows)
+
+    # Bewegung vs. ~7 Tage zuvor
+    dates = sorted({r[0] for r in rows})
+    movers = []
+    baseline_date = None
+    for d in reversed(dates):
+        if (datetime.date.fromisoformat(today) - datetime.date.fromisoformat(d)).days >= 6:
+            baseline_date = d
+            break
+    if baseline_date:
+        base = {r[1]: float(r[2]) for r in rows if r[0] == baseline_date}
+        movers = sorted(((t, teams[t]["elo"] - base[t]) for t in teams if t in base),
+                        key=lambda x: -abs(x[1]))
+        movers = [m for m in movers if abs(m[1]) >= 1][:6]
+
+    # ---------- Report ----------
+    with open("data/model.json") as f:
+        model = json.load(f)
+    upcoming = [g for g in sched if g["hs"] is None]
+    if not upcoming:
+        week = None
+    else:
+        week = min(g["w"] for g in upcoming)
+    lines = [f"# Gridiron Wochenreport", f"", f"Stand: {today} · Saison {season}", ""]
+    if week is not None:
+        lines += [f"## Woche {week} – Picks", ""]
+        cur_day = None
+        for g in [g for g in upcoming if g["w"] == week]:
+            p = predict_game(g, teams, model)
+            if p is None:
+                continue
+            fav, prob = (g["h"], p) if p >= 0.5 else (g["a"], 1 - p)
+            dog = g["a"] if fav == g["h"] else g["h"]
+            tier = " **[BANK]**" if prob >= 0.70 else (" **[UPSET-ALARM]**" if prob < 0.58 else "")
+            if g["d"] != cur_day:
+                lines.append(f"**{g['d']}**")
+                cur_day = g["d"]
+            lines.append(f"- {NAMES.get(fav, fav)} über {NAMES.get(dog, dog)} – {prob*100:.0f} %{tier}")
+        lines.append("")
+        bank = sum(1 for g in upcoming if g["w"] == week
+                   and (pp := predict_game(g, teams, model)) is not None
+                   and max(pp, 1 - pp) >= 0.70)
+        ups = sum(1 for g in upcoming if g["w"] == week
+                  and (pp := predict_game(g, teams, model)) is not None
+                  and max(pp, 1 - pp) < 0.58)
+        lines += [f"{bank} BANK-Picks (historisch ~75 % Trefferquote) · {ups} Upset-Alarme (Münzwürfe)", ""]
+    else:
+        lines += ["Keine offenen Spiele – Saison beendet.", ""]
+    lines += ["## Elo-Bewegungen (letzte 7 Tage)", ""]
+    if movers:
+        for t, d in movers:
+            arrow = "▲" if d > 0 else "▼"
+            lines.append(f"- {arrow} {NAMES.get(t, t)}: {d:+.0f} (jetzt {teams[t]['elo']:.0f})")
+    else:
+        lines.append("Keine nennenswerten Bewegungen (oder Historie startet gerade erst).")
+    lines += ["", "---", "*Automatisch generiert von der Gridiron-Pipeline.*"]
+    with open("REPORT.md", "w") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"OK: REPORT.md geschrieben (Woche {week}, {len(movers)} Elo-Bewegungen)")
+
 
 if __name__ == "__main__":
     main()

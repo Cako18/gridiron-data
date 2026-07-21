@@ -29,6 +29,6 @@ jobs:
         run: |
           git config user.name "gridiron-bot"
           git config user.email "actions@github.com"
-          git add data/app_data.json
+          git add data/ REPORT.md
           git diff --cached --quiet && echo "Keine Aenderungen" || git commit -m "Daten-Update $(date -u +%F)"
           git push
