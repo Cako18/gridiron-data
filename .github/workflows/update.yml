@@ -20,7 +20,7 @@ jobs:
           python-version: "3.12"
 
       - name: Abhaengigkeiten installieren
-        run: pip install pandas
+        run: pip install pandas scikit-learn
 
       - name: Daten neu berechnen
         run: python update_data.py
