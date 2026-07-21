@@ -24,6 +24,9 @@ POS_W = {"QB": 10.0, "T": 2.0, "OT": 2.0, "G": 1.2, "OG": 1.2, "C": 1.5, "OL": 1
          "DL": 1.7, "EDGE": 2.2, "OLB": 1.8, "ILB": 1.5, "LB": 1.6, "MLB": 1.5,
          "CB": 2.2, "S": 1.6, "SS": 1.6, "FS": 1.6, "DB": 1.8, "K": 0.8, "P": 0.4, "LS": 0.2}
 STATUS_W = {"Out": 1.0, "Doubtful": 0.8, "Questionable": 0.35}
+QB_ALPHA = 2 / (12 + 1)   # EWMA-Span 12 Starts
+QB_REPL = -0.06           # Replacement-Level fuer QBs ohne Historie
+QB_MIN_STARTS = 3
 
 
 def fetch_csv(url):
@@ -80,6 +83,40 @@ def main():
             lambda s: s.ewm(span=EWMA_SPAN, min_periods=4).mean())
     latest = stats.groupby("team").tail(1).set_index("team")
 
+    # ---------- QB-Ratings (EWMA der Passing-EPA/Dropback des Starters) ----------
+    stats["dropbacks"] = stats["attempts"].fillna(0) + stats["sacks_suffered"].fillna(0)
+    stats["qb_epa_pp"] = stats["passing_epa"].fillna(0) / stats["dropbacks"].clip(lower=1)
+    qb_perf = stats.set_index(["game_id", "team"])["qb_epa_pp"].to_dict()
+    qb_rating, qb_starts = {}, {}
+    stat_seasons = set(stats["season"].unique())
+    qb_games = games[games["season"].isin(stat_seasons)]
+    for _, g in qb_games.iterrows():
+        for side in ["home", "away"]:
+            qb = g[f"{side}_qb_name"]
+            if not isinstance(qb, str):
+                continue
+            obs = qb_perf.get((g["game_id"], g[f"{side}_team"]))
+            if obs is None or pd.isna(obs):
+                continue
+            r = qb_rating.get(qb, obs)
+            qb_rating[qb] = r + QB_ALPHA * (obs - r)
+            qb_starts[qb] = qb_starts.get(qb, 0) + 1
+    # Haeufigster Starter pro Team in der letzten Saison mit Ergebnissen
+    from collections import Counter
+    last_season_played = int(games["season"].max())
+    starts = defaultdict(Counter)
+    for _, g in games[games["season"] == last_season_played].iterrows():
+        if isinstance(g["home_qb_name"], str):
+            starts[g["home_team"]][g["home_qb_name"]] += 1
+        if isinstance(g["away_qb_name"], str):
+            starts[g["away_team"]][g["away_qb_name"]] += 1
+    team_qb = {}
+    for t, cnt in starts.items():
+        q = cnt.most_common(1)[0][0]
+        team_qb[t] = {"name": q,
+                      "rating": round(qb_rating.get(q, QB_REPL), 4),
+                      "new": 1 if qb_starts.get(q, 0) < QB_MIN_STARTS else 0}
+
     # ---------- Aktuelle Injury-Impacts ----------
     print("Lade Injuries...")
     inj = fetch_csv(INJ_URL.format(y=current_season))
@@ -104,6 +141,8 @@ def main():
             "w": int(r["week"]), "d": r["gameday"],
             "t": r["gametime"] if pd.notna(r["gametime"]) else "",
             "a": r["away_team"], "h": r["home_team"],
+            "hr": int(r["home_rest"]) if pd.notna(r["home_rest"]) else 7,
+            "ar": int(r["away_rest"]) if pd.notna(r["away_rest"]) else 7,
             "rd": int((r["home_rest"] if pd.notna(r["home_rest"]) else 7)
                       - (r["away_rest"] if pd.notna(r["away_rest"]) else 7)),
             "dv": int(r["div_game"]) if pd.notna(r["div_game"]) else 0,
@@ -124,6 +163,9 @@ def main():
             "cpoe": round(float(r["f_cpoe"]), 3) if pd.notna(r["f_cpoe"]) else 0,
             "inj": inj_impact.get(t, 0),
             "qb_out": int(qb_out.get(t, 0)),
+            "qb": team_qb.get(t, {}).get("rating", QB_REPL),
+            "qb_new": team_qb.get(t, {}).get("new", 1),
+            "qb_name": team_qb.get(t, {}).get("name", ""),
         }
 
     out = {
