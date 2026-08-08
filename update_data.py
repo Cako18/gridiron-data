@@ -62,6 +62,13 @@ POS_W = {"QB": 10.0, "T": 2.0, "OT": 2.0, "G": 1.2, "OG": 1.2, "C": 1.5, "OL": 1
 STATUS_W = {"Out": 1.0, "Doubtful": 0.8, "Questionable": 0.35}
 
 
+def ml_to_dec(ml):
+    """Amerikanische Moneyline -> Dezimalquote."""
+    if pd.isna(ml) or ml == 0:
+        return None
+    return round(1 + (100 / abs(ml) if ml < 0 else ml / 100), 2)
+
+
 def fetch_csv(url):
     try:
         with urllib.request.urlopen(url, timeout=60) as r:
@@ -246,6 +253,8 @@ def main():
             "dv": int(r["div_game"]) if pd.notna(r["div_game"]) else 0,
             "as": int(r["away_score"]) if done else None,
             "hs": int(r["home_score"]) if done else None,
+            "mh": ml_to_dec(r["home_moneyline"]),
+            "ma": ml_to_dec(r["away_moneyline"]),
         })
 
     # ---------- Team-Export (EPA inkl. letztem Spiel) ----------
