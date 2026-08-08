@@ -48,6 +48,13 @@ NAMES = {"ARI": "Cardinals", "ATL": "Falcons", "BAL": "Ravens", "BUF": "Bills",
          "NYJ": "Jets", "PHI": "Eagles", "PIT": "Steelers", "SEA": "Seahawks",
          "SF": "49ers", "TB": "Buccaneers", "TEN": "Titans", "WAS": "Commanders"}
 
+DIVISIONS = {
+    "AFC_East": ["BUF", "MIA", "NE", "NYJ"], "AFC_North": ["BAL", "CIN", "CLE", "PIT"],
+    "AFC_South": ["HOU", "IND", "JAX", "TEN"], "AFC_West": ["DEN", "KC", "LAC", "LV"],
+    "NFC_East": ["DAL", "NYG", "PHI", "WAS"], "NFC_North": ["CHI", "DET", "GB", "MIN"],
+    "NFC_South": ["ATL", "CAR", "NO", "TB"], "NFC_West": ["ARI", "LA", "SF", "SEA"],
+}
+
 POS_W = {"QB": 10.0, "T": 2.0, "OT": 2.0, "G": 1.2, "OG": 1.2, "C": 1.5, "OL": 1.5,
          "WR": 2.5, "TE": 1.5, "RB": 1.8, "FB": 0.5, "DE": 2.0, "DT": 1.5, "NT": 1.2,
          "DL": 1.7, "EDGE": 2.2, "OLB": 1.8, "ILB": 1.5, "LB": 1.6, "MLB": 1.5,
@@ -259,14 +266,126 @@ def main():
             "qb_name": team_qb.get(t, {}).get("name", ""),
         }
 
+    with open("data/model.json") as f:
+        model_now = json.load(f)
+    print("Simuliere Saison (10.000 Durchlaeufe)...")
+    proj = simulate_season(sched, teams, model_now)
+    duel = vegas_duel(games_all, teams, model_now, current_season)
+    print(f"  Duell-Stand: {duel['n']} abgerechnete Spiele, {duel['dis_n']} Uneinigkeiten")
+
     out = {"generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
            "season": current_season, "last_result": str(games["gameday"].max()),
-           "teams": teams, "schedule": sched}
+           "teams": teams, "schedule": sched, "proj": proj, "duel": duel}
     with open("data/app_data.json", "w") as f:
         json.dump(out, f, separators=(",", ":"))
     print(f"OK: data/app_data.json geschrieben ({len(teams)} Teams, {len(sched)} Spiele Saison {current_season})")
 
-    write_history_and_report(teams, sched, current_season, model)
+    write_history_and_report(teams, sched, current_season, model, proj, duel)
+
+
+
+def simulate_season(sched, teams, model, n_sims=10000):
+    """Monte-Carlo ueber die Restsaison: erwartete Siege, Playoff- und Division-Chancen."""
+    codes = sorted(teams.keys())
+    idx = {t: i for i, t in enumerate(codes)}
+    base = np.zeros(len(codes))
+    upcoming = []
+    for g in sched:
+        if g["h"] not in idx or g["a"] not in idx:
+            continue
+        if g["hs"] is not None:
+            if g["hs"] > g["as"]:
+                base[idx[g["h"]]] += 1
+            elif g["hs"] < g["as"]:
+                base[idx[g["a"]]] += 1
+            else:
+                base[idx[g["h"]]] += 0.5; base[idx[g["a"]]] += 0.5
+        else:
+            p = predict_game(g, teams, model)
+            if p is not None:
+                upcoming.append((idx[g["h"]], idx[g["a"]], p))
+    rng = np.random.default_rng(7)
+    wins = np.tile(base, (n_sims, 1))
+    if upcoming:
+        hs = np.array([u[0] for u in upcoming]); as_ = np.array([u[1] for u in upcoming])
+        ps = np.array([u[2] for u in upcoming])
+        draws = rng.random((n_sims, len(upcoming))) < ps
+        for j in range(len(upcoming)):
+            wins[:, hs[j]] += draws[:, j]
+            wins[:, as_[j]] += ~draws[:, j]
+    noisy = wins + rng.random(wins.shape) * 0.01   # zufaellige Tiebreaks
+    div_win = np.zeros((n_sims, len(codes)), dtype=bool)
+    for div, ts in DIVISIONS.items():
+        cols = [idx[t] for t in ts if t in idx]
+        best = np.argmax(noisy[:, cols], axis=1)
+        for k, c in enumerate(cols):
+            div_win[best == k, c] = True
+    playoff = div_win.copy()
+    for conf in [["AFC_East", "AFC_North", "AFC_South", "AFC_West"],
+                 ["NFC_East", "NFC_North", "NFC_South", "NFC_West"]]:
+        cols = [idx[t] for d in conf for t in DIVISIONS[d] if t in idx]
+        cw = noisy[:, cols].copy()
+        cw[div_win[:, cols]] = -1                   # Division-Sieger raus
+        order = np.argsort(-cw, axis=1)[:, :3]      # Top-3-Wildcards
+        rows = np.arange(n_sims)[:, None]
+        wc = np.zeros_like(cw, dtype=bool)
+        wc[rows, order] = True
+        for k, c in enumerate(cols):
+            playoff[:, c] |= wc[:, k]
+    return {t: {"w": round(float(wins[:, idx[t]].mean()), 1),
+                "po": round(100 * float(playoff[:, idx[t]].mean())),
+                "dv": round(100 * float(div_win[:, idx[t]].mean()))}
+            for t in codes}
+
+
+def vegas_duel(games_all, teams, model, season):
+    """Friert Modell- und Vegas-Picks vor dem Spiel ein und rechnet spaeter ehrlich ab."""
+    import csv, os
+    path = "data/vegas_duel.csv"
+    rows = {}
+    if os.path.exists(path):
+        with open(path) as f:
+            for r in list(csv.reader(f))[1:]:
+                if len(r) >= 4:
+                    rows[r[0]] = r
+    cur = games_all[games_all["season"] == season]
+    for _, g in cur.iterrows():
+        key = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
+        if key in rows or pd.notna(g["home_score"]):
+            continue
+        if pd.isna(g["spread_line"]) or g["spread_line"] == 0:
+            continue
+        gg = {"h": g["home_team"], "a": g["away_team"],
+              "hr": int(g["home_rest"]) if pd.notna(g["home_rest"]) else 7,
+              "ar": int(g["away_rest"]) if pd.notna(g["away_rest"]) else 7,
+              "t": g["gametime"] if pd.notna(g["gametime"]) else ""}
+        p = predict_game(gg, teams, model)
+        if p is None:
+            continue
+        model_pick = g["home_team"] if p >= 0.5 else g["away_team"]
+        vegas_pick = g["home_team"] if g["spread_line"] > 0 else g["away_team"]
+        rows[key] = [key, model_pick, vegas_pick, datetime.date.today().isoformat()]
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["key", "model_pick", "vegas_pick", "locked"])
+        w.writerows(rows.values())
+    # Abrechnung
+    stats = {"m": 0, "v": 0, "n": 0, "dis_n": 0, "dis_m": 0}
+    for _, g in cur.iterrows():
+        if pd.isna(g["home_score"]) or g["home_score"] == g["away_score"]:
+            continue
+        key = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
+        if key not in rows:
+            continue
+        winner = g["home_team"] if g["home_score"] > g["away_score"] else g["away_team"]
+        _, mp, vp, _ = rows[key][:4]
+        stats["n"] += 1
+        if mp == winner: stats["m"] += 1
+        if vp == winner: stats["v"] += 1
+        if mp != vp:
+            stats["dis_n"] += 1
+            if mp == winner: stats["dis_m"] += 1
+    return stats
 
 
 def predict_game(g, teams, model):
@@ -298,7 +417,7 @@ def predict_game(g, teams, model):
     return 1 / (1 + math.exp(-z))
 
 
-def write_history_and_report(teams, sched, season, model):
+def write_history_and_report(teams, sched, season, model, proj=None, duel=None):
     import csv, os
     today = datetime.date.today().isoformat()
 
@@ -359,6 +478,18 @@ def write_history_and_report(teams, sched, season, model):
             lines.append(f"- {arrow} {NAMES.get(t, t)}: {d:+.0f} (jetzt {teams[t]['elo']:.0f})")
     else:
         lines.append("Keine nennenswerten Bewegungen (oder Historie startet gerade erst).")
+    if proj:
+        lines += ["", "## Saisonprojektion (10.000 Simulationen)", ""]
+        top = sorted(proj.items(), key=lambda x: -x[1]["w"])[:8]
+        for t, p in top:
+            lines.append(f"- {NAMES.get(t, t)}: Ø {p['w']} Siege · Playoffs {p['po']} % · Division {p['dv']} %")
+    if duel and duel["n"] > 0:
+        lines += ["", "## Vegas-Duell", "",
+                  f"Modell {duel['m']}/{duel['n']} ({100*duel['m']/duel['n']:.1f} %) vs. Vegas {duel['v']}/{duel['n']} ({100*duel['v']/duel['n']:.1f} %)"]
+        if duel["dis_n"] > 0:
+            lines.append(f"Bei Uneinigkeit ({duel['dis_n']} Spiele): Modell gewinnt {duel['dis_m']} ({100*duel['dis_m']/duel['dis_n']:.0f} %)")
+    elif duel is not None:
+        lines += ["", "## Vegas-Duell", "", "Startet, sobald Quoten fuer kommende Spiele verfuegbar sind."]
     lines += ["", "---", "*Automatisch generiert von der Gridiron-Pipeline.*"]
     with open("REPORT.md", "w") as f:
         f.write("\n".join(lines) + "\n")
