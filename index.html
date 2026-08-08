@@ -5,11 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Gridiron Modell – NFL Predictor</title>
   <meta name="description" content="NFL-Vorhersagemodell: Elo + EPA + Injuries, täglich neu trainiert." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <style>html, body { margin: 0; background: #0A0D16; } </style>
+  <style>html, body { margin: 0; background: #0A0D16; }</style>
 </head>
 <body>
   <div id="root"></div>
+  <script>
+    window.onerror = function (msg) {
+      var r = document.getElementById("root");
+      if (r && !r.innerHTML) r.innerHTML = '<p style="color:#E0685C;font-family:monospace;padding:24px">Fehler beim Laden: ' + msg + '</p>';
+    };
+  </script>
   <script src="app.js"></script>
 </body>
 </html>
