@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-08-11 · Saison 2026 · Modell trainiert auf 3998 Spielen (2026-08-11)
+Stand: 2026-08-12 · Saison 2026 · Modell trainiert auf 3998 Spielen (2026-08-12)
 
 ## Woche 1 – Picks
 
