@@ -21,6 +21,29 @@ from sklearn.preprocessing import StandardScaler
 GAMES_URL = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv"
 STATS_URL = "https://github.com/nflverse/nflverse-data/releases/download/stats_team/stats_team_week_{y}.csv"
 INJ_URL = "https://github.com/nflverse/nflverse-data/releases/download/injuries/injuries_{y}.csv"
+SNAP_URL = "https://github.com/nflverse/nflverse-data/releases/download/snap_counts/snap_counts_{y}.csv"
+PSTAT_URL = "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_{y}.csv"
+DEPTH_URL = "https://github.com/nflverse/nflverse-data/releases/download/depth_charts/depth_charts_{y}.csv"
+
+# Positionsgruppen fuer die Aufstellung
+OFF_POS = ["QB", "RB", "WR", "TE", "T", "G", "C", "OL", "OT", "OG", "FB"]
+DEF_POS = ["DE", "DT", "NT", "EDGE", "DL", "LB", "OLB", "ILB", "MLB", "CB", "S", "SS", "FS", "DB"]
+# Wie viele Starter je Gruppe angezeigt werden
+LINEUP_SLOTS = {"QB": 1, "RB": 1, "WR": 3, "TE": 1, "OL": 5, "DL": 4, "LB": 3, "DB": 4}
+
+
+def pos_group(p):
+    if p in ("T", "G", "C", "OL", "OT", "OG"):
+        return "OL"
+    if p in ("DE", "DT", "NT", "EDGE", "DL"):
+        return "DL"
+    if p in ("LB", "OLB", "ILB", "MLB"):
+        return "LB"
+    if p in ("CB", "S", "SS", "FS", "DB"):
+        return "DB"
+    if p in ("QB", "RB", "WR", "TE", "FB"):
+        return "RB" if p == "FB" else p
+    return None
 
 K, HOME_ADV, START, REG = 20, 48, 1500, 0.33
 QB_ALPHA = 2 / (12 + 1)
@@ -349,6 +372,37 @@ def main():
             entry["arch_hit"] = min(hits)
         analysis[key] = entry
 
+    print("Lade Aufstellungen...")
+    lineup_season = current_season if current_season in stat_seasons else last_played
+    try:
+        lineups, player_rate = build_lineups(lineup_season, team_qb)
+    except Exception as e:
+        print(f"  (Aufstellungen uebersprungen: {e})")
+        lineups, player_rate = {}, {}
+    print(f"  {len(lineups)} Teams mit Aufstellung (Saison {lineup_season})")
+
+    inj_status = {}
+    if len(cur_inj):
+        for _, r in cur_inj.iterrows():
+            if isinstance(r.get("full_name"), str):
+                inj_status[(r["full_name"], r["team"])] = str(r["report_status"])[:1]
+    try:
+        depth = build_depth_charts(current_season, player_rate, inj_status)
+        if not depth:
+            depth = build_depth_charts(lineup_season, player_rate, inj_status)
+    except Exception as e:
+        print(f"  (Depth Charts uebersprungen: {e})")
+        depth = {}
+    print(f"  {len(depth)} Teams mit Depth Chart")
+
+    print("Protokolliere Linien-Bewegungen...")
+    try:
+        line_moves = track_lines(games_all, current_season)
+    except Exception as e:
+        print(f"  (uebersprungen: {e})")
+        line_moves = {}
+    print(f"  {len(line_moves)} Spiele mit Bewegung >= 1.5 Punkte")
+
     print("Simuliere Saison (10.000 Durchlaeufe)...")
     proj = simulate_season(sched, teams, model_now)
     duel = vegas_duel(games_all, teams, model_now, current_season)
@@ -362,12 +416,13 @@ def main():
            "season": current_season, "last_result": str(games["gameday"].max()),
            "teams": teams, "schedule": sched, "proj": proj, "duel": duel,
            "kiadj": kiadj, "analysis": analysis, "archetypes": ARCHETYPES,
+           "lineups": lineups, "depth": depth, "line_moves": line_moves, "lineup_season": lineup_season,
            "arch_corr": ARCH_CORR, "edge_sources": EDGE_SOURCES}
     with open("data/app_data.json", "w") as f:
         json.dump(out, f, separators=(",", ":"))
     print(f"OK: data/app_data.json geschrieben ({len(teams)} Teams, {len(sched)} Spiele Saison {current_season})")
 
-    write_history_and_report(teams, sched, current_season, model, proj, duel)
+    write_history_and_report(line_moves, teams, sched, current_season, model, proj, duel)
 
 
 
@@ -425,6 +480,139 @@ def simulate_season(sched, teams, model, n_sims=10000):
             for t in codes}
 
 
+def build_depth_charts(season, rate, inj_status):
+    """Offizielle Depth Charts im ESPN-Stil: Position x String-Tiefe, mit
+    Verletzungsstatus und Gridiron-Rating je Spieler."""
+    dc = fetch_csv(DEPTH_URL.format(y=season))
+    if dc is None or not len(dc):
+        return {}
+    dc = dc[dc["dt"] == dc["dt"].max()].copy()      # aktuellster Stand
+    stamp = str(dc["dt"].iat[0])[:10]
+    out = {}
+    for team, tg in dc.groupby("team"):
+        groups = {}
+        for grp_name, gg in tg.groupby("pos_grp"):
+            rows = []
+            for slot, sg in gg.sort_values("pos_slot").groupby("pos_slot", sort=True):
+                sg = sg.sort_values("pos_rank")
+                players = []
+                for _, r in sg.iterrows():
+                    nm = r["player_name"]
+                    e = {"n": nm, "d": int(r["pos_rank"])}
+                    rt = rate.get((nm, team))
+                    if rt:
+                        e["r"] = rt
+                    st = inj_status.get((nm, team))
+                    if st:
+                        e["i"] = st
+                    players.append(e)
+                if players:
+                    rows.append({"pos": sg["pos_abb"].iat[0], "players": players[:3]})
+            if rows:
+                groups[str(grp_name)] = rows
+        if groups:
+            out[team] = {"stamp": stamp, "groups": groups}
+    return out
+
+
+def build_lineups(season, team_qb=None):
+    """Startaufstellungen je Team mit transparentem Gridiron-Rating (0-99).
+
+    Starter = hoechster Snap-Anteil der letzten Spiele. Rating aus EPA-Produktion
+    (Offense) bzw. Impact-Plays je Snap (Defense), ligaweit auf 0-99 normiert.
+    """
+    snaps = fetch_csv(SNAP_URL.format(y=season))
+    pstats = fetch_csv(PSTAT_URL.format(y=season))
+    if snaps is None or pstats is None or not len(snaps):
+        return {}
+
+    # --- Starter je Team ueber die letzten 6 Wochen ---
+    last_wk = snaps["week"].max()
+    recent = snaps[snaps["week"] > last_wk - 6].copy()
+    recent["snap_pct"] = recent[["offense_pct", "defense_pct"]].max(axis=1)
+    agg = (recent.groupby(["team", "player", "position"], as_index=False)
+           .agg(snap_pct=("snap_pct", "mean"), games=("player", "size")))
+    agg = agg[agg["games"] >= 2]
+    snaps["snap_pct_all"] = snaps[["offense_pct", "defense_pct"]].max(axis=1)
+    season_agg = (snaps.groupby(["team", "player", "position"], as_index=False)
+                  .agg(snap_pct=("snap_pct_all", "mean")))
+    agg["grp"] = agg["position"].apply(pos_group)
+    agg = agg[agg["grp"].notna()]
+
+    # --- Spieler-Rating ---
+    p = pstats.copy()
+    for c in ["passing_epa", "rushing_epa", "receiving_epa", "def_sacks", "def_qb_hits",
+              "def_tackles_for_loss", "def_interceptions", "def_pass_defended",
+              "def_fumbles_forced", "def_tackles_solo", "attempts", "carries",
+              "targets", "sacks_suffered"]:
+        if c not in p.columns:
+            p[c] = 0
+        p[c] = p[c].fillna(0)
+    grp = p.groupby(["player_display_name", "team"], as_index=False).agg(
+        pass_epa=("passing_epa", "sum"), rush_epa=("rushing_epa", "sum"),
+        rec_epa=("receiving_epa", "sum"), att=("attempts", "sum"),
+        car=("carries", "sum"), tgt=("targets", "sum"), wk=("week", "nunique"),
+        sacks=("def_sacks", "sum"), qbh=("def_qb_hits", "sum"),
+        tfl=("def_tackles_for_loss", "sum"), ints=("def_interceptions", "sum"),
+        pd_=("def_pass_defended", "sum"), ff=("def_fumbles_forced", "sum"),
+        tkl=("def_tackles_solo", "sum"))
+    grp["off_epa"] = grp["pass_epa"] + grp["rush_epa"] + grp["rec_epa"]
+    grp["opps"] = grp["att"] + grp["car"] + grp["tgt"]
+    # Haupt-Position je Spieler (haeufigste in den Wochenstats)
+    posmap = (p.groupby(["player_display_name", "team"])["position"]
+              .agg(lambda s: s.mode().iat[0] if len(s.mode()) else None).reset_index())
+    grp = grp.merge(posmap, on=["player_display_name", "team"], how="left")
+    grp["grp"] = grp["position"].apply(pos_group)
+
+    OFF_GRPS, DEF_GRPS = {"QB", "RB", "WR", "TE"}, {"DL", "LB", "DB"}
+    grp["score"] = np.nan
+    off_mask = grp["grp"].isin(OFF_GRPS) & (grp["opps"] >= 20)
+    grp.loc[off_mask, "score"] = (grp.loc[off_mask, "off_epa"]
+                                  / grp.loc[off_mask, "opps"].clip(lower=1))
+    def_mask = grp["grp"].isin(DEF_GRPS) & (grp["wk"] >= 3)
+    grp.loc[def_mask, "score"] = ((2.0 * grp["sacks"] + 1.0 * grp["qbh"] + 1.5 * grp["tfl"]
+                                   + 3.0 * grp["ints"] + 1.2 * grp["pd_"] + 2.0 * grp["ff"]
+                                   + 0.25 * grp["tkl"]) / grp["wk"].clip(lower=1))[def_mask]
+
+    # Normierung INNERHALB der Positionsgruppe -> QB vergleicht sich mit QBs
+    rate = {}
+    for g_name, sub in grp[grp["score"].notna()].groupby("grp"):
+        if len(sub) < 8:
+            continue
+        lo, hi = sub["score"].quantile(0.10), sub["score"].quantile(0.90)
+        for _, r in sub.iterrows():
+            v = (r["score"] - lo) / (hi - lo) if hi > lo else 0.5
+            rate[(r["player_display_name"], r["team"])] = int(round(45 + 53 * min(1, max(0, v))))
+
+    # --- Aufstellung zusammenstellen ---
+    out = {}
+    for team, tg in agg.groupby("team"):
+        side = {"off": [], "def": []}
+        # Stamm-QB aus der Saisonauswertung hat Vorrang vor dem Snap-Anteil
+        # (sonst landet der Backup aus Woche 18 in der Aufstellung)
+        starter_qb = (team_qb or {}).get(team, {}).get("name")
+        for g_, slots in LINEUP_SLOTS.items():
+            sel = tg[tg["grp"] == g_].sort_values("snap_pct", ascending=False)
+            if g_ == "QB" and starter_qb:
+                prio = sel[sel["player"] == starter_qb]
+                if not len(prio):
+                    # Stamm-QB spielte zuletzt nicht (Ruhe/Verletzung) -> Saisonwerte nutzen
+                    prio = season_agg[(season_agg["team"] == team)
+                                      & (season_agg["player"] == starter_qb)].copy()
+                if len(prio):
+                    sel = pd.concat([prio, sel[sel["player"] != starter_qb]])
+            sel = sel.head(slots)
+            for _, r in sel.iterrows():
+                entry = {"n": r["player"], "p": r["position"],
+                         "s": int(round(100 * r["snap_pct"]))}
+                rt = rate.get((r["player"], team))
+                if rt:
+                    entry["r"] = rt
+                side["off" if g_ in ("QB", "RB", "WR", "TE", "OL") else "def"].append(entry)
+        out[team] = side
+    return out, rate
+
+
 def market_prob(g, pick):
     """Entvigte implizite Wahrscheinlichkeit des Picks aus den Moneylines."""
     dh, da = ml_to_dec(g["home_moneyline"]), ml_to_dec(g["away_moneyline"])
@@ -433,6 +621,51 @@ def market_prob(g, pick):
     ih, ia = 1 / dh, 1 / da
     p_home = ih / (ih + ia)
     return p_home if pick == g["home_team"] else 1 - p_home
+
+
+def track_lines(games_all, season):
+    """Protokolliert Moneylines je Lauf und meldet auffaellige Bewegungen."""
+    import csv, os
+    path = "data/line_history.csv"
+    rows = []
+    if os.path.exists(path):
+        with open(path) as f:
+            rows = [r for r in list(csv.reader(f))[1:] if len(r) >= 4]
+    stamp = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="minutes")
+    cur = games_all[(games_all["season"] == season) & games_all["home_score"].isna()]
+    latest = {}
+    for _, g in cur.iterrows():
+        if pd.isna(g["home_moneyline"]) or pd.isna(g["away_moneyline"]):
+            continue
+        key = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
+        pm = market_prob(g, g["home_team"])
+        if pm is None:
+            continue
+        latest[key] = pm
+        prev = [r for r in rows if r[0] == key]
+        if prev and abs(float(prev[-1][2]) - pm) < 0.002:
+            continue                      # unveraendert -> keine neue Zeile
+        rows.append([key, stamp, f"{pm:.4f}", g["home_team"]])
+    # Auf die letzten 60 Tage begrenzen
+    cutoff = (datetime.date.today() - datetime.timedelta(days=60)).isoformat()
+    rows = [r for r in rows if r[1][:10] >= cutoff]
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["key", "stamp", "p_home", "home_team"])
+        w.writerows(rows)
+    # Bewegungen berechnen
+    moves = {}
+    for key, pm in latest.items():
+        hist = sorted([r for r in rows if r[0] == key], key=lambda r: r[1])
+        if len(hist) < 2:
+            continue
+        opener = float(hist[0][2])
+        move = 100 * (pm - opener)
+        if abs(move) >= 1.5:
+            moves[key] = {"open": round(100 * opener, 1), "now": round(100 * pm, 1),
+                          "move": round(move, 1), "since": hist[0][1][:10],
+                          "steps": len(hist)}
+    return moves
 
 
 def vegas_duel(games_all, teams, model, season):
@@ -651,7 +884,7 @@ def predict_game(g, teams, model, adj_home=0, adj_away=0):
     return 1 / (1 + math.exp(-z))
 
 
-def write_history_and_report(teams, sched, season, model, proj=None, duel=None):
+def write_history_and_report(line_moves_report, teams, sched, season, model, proj=None, duel=None):
     import csv, os
     today = datetime.date.today().isoformat()
 
