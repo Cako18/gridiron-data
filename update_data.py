@@ -373,13 +373,17 @@ def vegas_duel(games_all, teams, model, season):
             continue
         model_pick = g["home_team"] if p >= 0.5 else g["away_team"]
         vegas_pick = g["home_team"] if g["spread_line"] > 0 else g["away_team"]
-        rows[key] = [key, model_pick, vegas_pick, datetime.date.today().isoformat()]
+        rows[key] = [key, model_pick, vegas_pick, datetime.date.today().isoformat(),
+                     f"{max(p, 1 - p):.4f}"]
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["key", "model_pick", "vegas_pick", "locked"])
+        w.writerow(["key", "model_pick", "vegas_pick", "locked", "p_model"])
         w.writerows(rows.values())
     # Abrechnung
     stats = {"m": 0, "v": 0, "n": 0, "dis_n": 0, "dis_m": 0}
+    # Kalibrierung: vorhergesagte vs. eingetretene Trefferquote pro Confidence-Bucket
+    buckets = {"50-58": [0.50, 0.58], "58-70": [0.58, 0.70], "70+": [0.70, 1.01]}
+    cal = {b: {"n": 0, "hit": 0, "p_sum": 0.0} for b in buckets}
     for _, g in cur.iterrows():
         if pd.isna(g["home_score"]) or g["home_score"] == g["away_score"]:
             continue
@@ -387,13 +391,29 @@ def vegas_duel(games_all, teams, model, season):
         if key not in rows:
             continue
         winner = g["home_team"] if g["home_score"] > g["away_score"] else g["away_team"]
-        _, mp, vp, _ = rows[key][:4]
+        r = rows[key]
+        mp, vp = r[1], r[2]
         stats["n"] += 1
         if mp == winner: stats["m"] += 1
         if vp == winner: stats["v"] += 1
         if mp != vp:
             stats["dis_n"] += 1
             if mp == winner: stats["dis_m"] += 1
+        if len(r) >= 5:
+            try:
+                pm = float(r[4])
+                for b, (lo, hi) in buckets.items():
+                    if lo <= pm < hi:
+                        cal[b]["n"] += 1
+                        cal[b]["p_sum"] += pm
+                        if mp == winner:
+                            cal[b]["hit"] += 1
+            except ValueError:
+                pass
+    stats["cal"] = {b: {"n": c["n"],
+                        "pred": round(100 * c["p_sum"] / c["n"], 1) if c["n"] else 0,
+                        "real": round(100 * c["hit"] / c["n"], 1) if c["n"] else 0}
+                    for b, c in cal.items()}
     return stats
 
 
@@ -497,6 +517,17 @@ def write_history_and_report(teams, sched, season, model, proj=None, duel=None):
                   f"Modell {duel['m']}/{duel['n']} ({100*duel['m']/duel['n']:.1f} %) vs. Vegas {duel['v']}/{duel['n']} ({100*duel['v']/duel['n']:.1f} %)"]
         if duel["dis_n"] > 0:
             lines.append(f"Bei Uneinigkeit ({duel['dis_n']} Spiele): Modell gewinnt {duel['dis_m']} ({100*duel['dis_m']/duel['dis_n']:.0f} %)")
+        cal = duel.get("cal", {})
+        if any(c["n"] > 0 for c in cal.values()):
+            lines += ["", "### Kalibrierung (vorhergesagt vs. eingetreten)", ""]
+            for b in ["50-58", "58-70", "70+"]:
+                c = cal.get(b, {"n": 0})
+                if c["n"] > 0:
+                    drift = c["real"] - c["pred"]
+                    flag = " ⚠" if abs(drift) > 8 and c["n"] >= 15 else ""
+                    lines.append(f"- {b} %: {c['n']} Spiele · vorhergesagt Ø {c['pred']} % · eingetreten {c['real']} %{flag}")
+            lines.append("")
+            lines.append("Gut kalibriert = beide Werte nah beieinander. ⚠ = Drift über 8 Punkte bei genug Spielen – Modell prüfen.")
     elif duel is not None:
         lines += ["", "## Vegas-Duell", "", "Startet, sobald Quoten fuer kommende Spiele verfuegbar sind."]
     lines += ["", "---", "*Automatisch generiert von der Gridiron-Pipeline.*"]
