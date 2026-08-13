@@ -375,29 +375,41 @@ def vegas_duel(games_all, teams, model, season):
     cur = games_all[games_all["season"] == season]
     for _, g in cur.iterrows():
         key = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
-        # Nachtrag: alte Locks ohne Markt-Referenz bekommen sie, solange das Spiel noch nicht lief
-        if key in rows and pd.isna(g["home_score"]):
-            r = rows[key]
-            if len(r) < 6 or not r[5]:
+        played = pd.notna(g["home_score"])
+        existing = rows.get(key)
+        if existing is None:
+            if played or pd.isna(g["spread_line"]) or g["spread_line"] == 0:
+                continue
+            gg = {"h": g["home_team"], "a": g["away_team"],
+                  "hr": int(g["home_rest"]) if pd.notna(g["home_rest"]) else 7,
+                  "ar": int(g["away_rest"]) if pd.notna(g["away_rest"]) else 7,
+                  "t": g["gametime"] if pd.notna(g["gametime"]) else ""}
+            p = predict_game(gg, teams, model)
+            if p is None:
+                continue
+            model_pick = g["home_team"] if p >= 0.5 else g["away_team"]
+            vegas_pick = g["home_team"] if g["spread_line"] > 0 else g["away_team"]
+            pm = market_prob(g, model_pick)
+            rows[key] = [key, model_pick, vegas_pick, datetime.date.today().isoformat(),
+                         f"{max(p, 1 - p):.4f}", f"{pm:.4f}" if pm is not None else ""]
+            continue
+        # Bestehender Lock: fehlende Spalten nachtragen, solange das Spiel noch nicht lief
+        r = list(existing) + [""] * (6 - len(existing))
+        if not played:
+            if not r[4]:
+                gg = {"h": g["home_team"], "a": g["away_team"],
+                      "hr": int(g["home_rest"]) if pd.notna(g["home_rest"]) else 7,
+                      "ar": int(g["away_rest"]) if pd.notna(g["away_rest"]) else 7,
+                      "t": g["gametime"] if pd.notna(g["gametime"]) else ""}
+                p = predict_game(gg, teams, model)
+                if p is not None:
+                    r[4] = f"{max(p, 1 - p):.4f}"
+            if not r[5]:
                 pm = market_prob(g, r[1])
-                rows[key] = (list(r[:5]) + [""] * max(0, 5 - len(r)))[:5] + [f"{pm:.4f}" if pm is not None else ""]
-            continue
-        if key in rows or pd.notna(g["home_score"]):
-            continue
-        if pd.isna(g["spread_line"]) or g["spread_line"] == 0:
-            continue
-        gg = {"h": g["home_team"], "a": g["away_team"],
-              "hr": int(g["home_rest"]) if pd.notna(g["home_rest"]) else 7,
-              "ar": int(g["away_rest"]) if pd.notna(g["away_rest"]) else 7,
-              "t": g["gametime"] if pd.notna(g["gametime"]) else ""}
-        p = predict_game(gg, teams, model)
-        if p is None:
-            continue
-        model_pick = g["home_team"] if p >= 0.5 else g["away_team"]
-        vegas_pick = g["home_team"] if g["spread_line"] > 0 else g["away_team"]
-        p_mkt = market_prob(g, model_pick)
-        rows[key] = [key, model_pick, vegas_pick, datetime.date.today().isoformat(),
-                     f"{max(p, 1 - p):.4f}", f"{p_mkt:.4f}" if p_mkt is not None else ""]
+                if pm is not None:
+                    r[5] = f"{pm:.4f}"
+        rows[key] = r[:6]
+
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["key", "model_pick", "vegas_pick", "locked", "p_model", "p_mkt_lock"])
