@@ -280,11 +280,16 @@ def main():
     print("Simuliere Saison (10.000 Durchlaeufe)...")
     proj = simulate_season(sched, teams, model_now)
     duel = vegas_duel(games_all, teams, model_now, current_season)
+    kiadj = claude_batch(sched, teams, model_now, current_season)
+    ai_stats = ai_bilanz(games_all, current_season)
+    if ai_stats:
+        duel["ai"] = ai_stats
     print(f"  Duell-Stand: {duel['n']} abgerechnete Spiele, {duel['dis_n']} Uneinigkeiten")
 
     out = {"generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
            "season": current_season, "last_result": str(games["gameday"].max()),
-           "teams": teams, "schedule": sched, "proj": proj, "duel": duel}
+           "teams": teams, "schedule": sched, "proj": proj, "duel": duel,
+           "kiadj": kiadj}
     with open("data/app_data.json", "w") as f:
         json.dump(out, f, separators=(",", ":"))
     print(f"OK: data/app_data.json geschrieben ({len(teams)} Teams, {len(sched)} Spiele Saison {current_season})")
@@ -451,7 +456,7 @@ def vegas_duel(games_all, teams, model, season):
     return stats
 
 
-def predict_game(g, teams, model):
+def predict_game(g, teams, model, adj_home=0, adj_away=0):
     h, a = teams.get(g["h"]), teams.get(g["a"])
     if not h or not a:
         return None
@@ -462,7 +467,7 @@ def predict_game(g, teams, model):
     except (ValueError, TypeError):
         pass
     x = [
-        h["elo"] + model["home_adv_elo"] - a["elo"],
+        (h["elo"] + adj_home) + model["home_adv_elo"] - (a["elo"] + adj_away),
         h.get("qb", 0) - a.get("qb", 0),
         h["off_epa"] - a["off_epa"],
         a["def_epa"] - h["def_epa"],
@@ -511,6 +516,11 @@ def write_history_and_report(teams, sched, season, model, proj=None, duel=None):
 
     upcoming = [g for g in sched if g["hs"] is None]
     week = min((g["w"] for g in upcoming), default=None)
+    try:
+        with open("data/ai_context.json") as f:
+            ai_ctx = json.load(f).get("games", {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        ai_ctx = {}
     lines = ["# Gridiron Wochenreport", "", f"Stand: {today} · Saison {season} · Modell trainiert auf {model['train_games']} Spielen ({model['trained']})", ""]
     if week is not None:
         lines += [f"## Woche {week} – Picks", ""]
@@ -530,7 +540,18 @@ def write_history_and_report(teams, sched, season, model, proj=None, duel=None):
             if g["d"] != cur_day:
                 lines.append(f"**{g['d']}**")
                 cur_day = g["d"]
-            lines.append(f"- {NAMES.get(fav, fav)} über {NAMES.get(dog, dog)} – {prob*100:.0f} %{tier}")
+            ai_note = ""
+            a = ai_ctx.get(f"{g['w']}-{g['a']}-{g['h']}")
+            if a:
+                gg = dict(g)
+                p_ai = predict_game(gg, teams, model, a.get("ha", 0), a.get("aa", 0))
+                if p_ai is not None:
+                    fav_ai = g["h"] if p_ai >= 0.5 else g["a"]
+                    prob_ai = max(p_ai, 1 - p_ai)
+                    shown = prob_ai if fav_ai == fav else 1 - prob_ai
+                    arrow = "▲" if shown > prob + 0.001 else ("▼" if shown < prob - 0.001 else "•")
+                    ai_note = f" · KI {arrow} {shown*100:.0f} %"
+            lines.append(f"- {NAMES.get(fav, fav)} über {NAMES.get(dog, dog)} – {prob*100:.0f} %{tier}{ai_note}")
         lines += ["", f"{bank} BANK-Picks (historisch ~75 % Trefferquote) · {ups} Upset-Alarme (Münzwürfe)", ""]
     else:
         lines += ["Keine offenen Spiele – Saison beendet.", ""]
@@ -551,6 +572,9 @@ def write_history_and_report(teams, sched, season, model, proj=None, duel=None):
                   f"Modell {duel['m']}/{duel['n']} ({100*duel['m']/duel['n']:.1f} %) vs. Vegas {duel['v']}/{duel['n']} ({100*duel['v']/duel['n']:.1f} %)"]
         if duel["dis_n"] > 0:
             lines.append(f"Bei Uneinigkeit ({duel['dis_n']} Spiele): Modell gewinnt {duel['dis_m']} ({100*duel['dis_m']/duel['dis_n']:.0f} %)")
+        ai = duel.get("ai")
+        if ai:
+            lines.append(f"Modell+KI (Auto-Analyse): {ai['hit']}/{ai['n']} ({100*ai['hit']/ai['n']:.1f} %)")
         cal = duel.get("cal", {})
         if any(c["n"] > 0 for c in cal.values()):
             lines += ["", "### Kalibrierung (vorhergesagt vs. eingetreten)", ""]
@@ -575,6 +599,157 @@ def write_history_and_report(teams, sched, season, model, proj=None, duel=None):
         f.write("\n".join(lines) + "\n")
     print(f"OK: REPORT.md geschrieben (Woche {week}, {len(movers)} Elo-Bewegungen)")
 
+
+
+
+def claude_batch(sched, teams, model, season):
+    """Automatische News-Analyse der Swing-Spiele der Woche via Anthropic API.
+    Laeuft nur, wenn ANTHROPIC_API_KEY gesetzt ist (Do/So oder FORCE_CLAUDE=1).
+    Ergebnisse werden eingefroren in data/claude_adjust.json + data/ai_picks.csv."""
+    import os, urllib.request
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {}
+    today = datetime.date.today()
+    if today.weekday() not in (3, 6) and os.environ.get("FORCE_CLAUDE") != "1":
+        # Nur Donnerstag/Sonntag analysieren (Kosten sparen)
+        try:
+            return json.load(open("data/claude_adjust.json"))
+        except Exception:
+            return {}
+    try:
+        adjust = json.load(open("data/claude_adjust.json"))
+    except Exception:
+        adjust = {}
+
+    upcoming = [g for g in sched if g["hs"] is None]
+    week = min((g["w"] for g in upcoming), default=None)
+    try:
+        with open("data/ai_context.json") as f:
+            ai_ctx = json.load(f).get("games", {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        ai_ctx = {}
+    if week is None:
+        return adjust
+    candidates = []
+    for g in upcoming:
+        if g["w"] != week:
+            continue
+        p = predict_game(g, teams, model)
+        if p is None:
+            continue
+        fav_p = max(p, 1 - p)
+        key = f"{g['w']}-{g['a']}-{g['h']}"
+        old = adjust.get(key)
+        if old and (today - datetime.date.fromisoformat(old["date"])).days < 5:
+            continue
+        if fav_p < 0.65:                      # nur Swing-Spiele: da bewegen News am meisten
+            candidates.append((fav_p, key, g))
+    candidates = sorted(candidates)[:10]      # Kostendeckel: max 10 Spiele pro Lauf
+    print(f"Claude-Batch: analysiere {len(candidates)} Swing-Spiele der Woche {week}...")
+
+    for _, key, g in candidates:
+        hn, an = NAMES.get(g["h"], g["h"]), NAMES.get(g["a"], g["a"])
+        prompt = (f"Du bist der Kontext-Layer eines statistischen NFL-Vorhersagemodells. "
+                  f"Matchup: {hn} (Heim) gegen {an} (Auswaerts), Saison {season} Woche {g['w']}. "
+                  f"Recherchiere per Websuche knapp die AKTUELLE Lage beider Teams: Verletzungen/Inactives, "
+                  f"QB-Situation, Trainerwechsel, Form. Maximal 3 Suchen. "
+                  f"Uebersetze in Elo-Anpassungen zwischen -75 und +75 pro Team (0 = keine relevanten News). "
+                  f"Antworte am Ende AUSSCHLIESSLICH mit validem JSON ohne Markdown: "
+                  f'{{"home_adj": <int>, "away_adj": <int>, "summary": "<2 Saetze Deutsch>", "factors": ["<F1>", "<F2>"]}}')
+        msgs = [{"role": "user", "content": prompt}]
+        text = ""
+        try:
+            for _round in range(4):
+                body = json.dumps({"model": "claude-sonnet-4-6", "max_tokens": 1000,
+                                   "messages": msgs,
+                                   "tools": [{"type": "web_search_20250305", "name": "web_search"}]}).encode()
+                req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body,
+                    headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
+                             "content-type": "application/json"})
+                with urllib.request.urlopen(req, timeout=180) as r:
+                    data = json.loads(r.read())
+                if data.get("error"):
+                    raise RuntimeError(data["error"].get("message", "API-Fehler"))
+                msgs.append({"role": "assistant", "content": data.get("content", [])})
+                text += "\n".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+                if data.get("stop_reason") == "pause_turn":
+                    continue
+                if '"home_adj"' in text and text.rfind("}") > text.find("{"):
+                    break
+                msgs.append({"role": "user", "content": "Gib jetzt AUSSCHLIESSLICH das geforderte JSON aus."})
+            clean = text.replace("```json", "").replace("```", "")
+            js = clean[clean.find("{"): clean.rfind("}") + 1]
+            import re as _re
+            m = _re.search(r"\{[\s\S]*\"home_adj\"[\s\S]*\}", clean)
+            if m:
+                js = m.group(0)
+            parsed = json.loads(js)
+            adjust[key] = {
+                "ha": max(-75, min(75, int(parsed.get("home_adj", 0)))),
+                "aa": max(-75, min(75, int(parsed.get("away_adj", 0)))),
+                "summary": str(parsed.get("summary", ""))[:400],
+                "factors": [str(f)[:150] for f in parsed.get("factors", [])][:3],
+                "date": today.isoformat(),
+            }
+            print(f"  {key}: H{adjust[key]['ha']:+d} / A{adjust[key]['aa']:+d}")
+        except Exception as e:
+            print(f"  {key}: uebersprungen ({e})")
+
+    with open("data/claude_adjust.json", "w") as f:
+        json.dump(adjust, f, ensure_ascii=False, separators=(",", ":"))
+
+    # Modell+KI-Picks separat einfrieren (fuer die A/B-Bilanz im Duell)
+    import csv, os as _os
+    ai_path = "data/ai_picks.csv"
+    ai_rows = {}
+    if _os.path.exists(ai_path):
+        with open(ai_path) as f:
+            for r in list(csv.reader(f))[1:]:
+                if len(r) >= 2:
+                    ai_rows[r[0]] = r
+    for g in upcoming:
+        key = f"{g['w']}-{g['a']}-{g['h']}"
+        if key in ai_rows or key not in adjust:
+            continue
+        adj = adjust[key]
+        h2 = dict(teams.get(g["h"], {})); a2 = dict(teams.get(g["a"], {}))
+        if not h2 or not a2:
+            continue
+        h2["elo"] += adj["ha"]; a2["elo"] += adj["aa"]
+        p = predict_game(g, {**teams, g["h"]: h2, g["a"]: a2}, model)
+        if p is None:
+            continue
+        ai_rows[key] = [key, g["h"] if p >= 0.5 else g["a"], today.isoformat()]
+    with open(ai_path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["key", "ai_pick", "locked"])
+        w.writerows(ai_rows.values())
+    return adjust
+
+
+def ai_bilanz(games_all, season):
+    """Abrechnung der eingefrorenen Modell+KI-Picks."""
+    import csv, os as _os
+    if not _os.path.exists("data/ai_picks.csv"):
+        return None
+    rows = {}
+    with open("data/ai_picks.csv") as f:
+        for r in list(csv.reader(f))[1:]:
+            if len(r) >= 2:
+                rows[r[0]] = r[1]
+    n = hit = 0
+    for _, g in games_all[games_all["season"] == season].iterrows():
+        if pd.isna(g["home_score"]) or g["home_score"] == g["away_score"]:
+            continue
+        key = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
+        if key not in rows:
+            continue
+        winner = g["home_team"] if g["home_score"] > g["away_score"] else g["away_team"]
+        n += 1
+        if rows[key] == winner:
+            hit += 1
+    return {"n": n, "hit": hit} if n else None
 
 if __name__ == "__main__":
     main()

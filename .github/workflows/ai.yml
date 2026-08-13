@@ -1,0 +1,40 @@
+name: KI-Kontextanalyse
+
+on:
+  schedule:
+    # Donnerstags 08:00 UTC - vor dem ersten Spiel der Woche
+    - cron: "0 8 * * 4"
+    # Sonntags 15:00 UTC - nach den finalen Injury Reports
+    - cron: "0 15 * * 0"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gridiron-data
+  cancel-in-progress: false
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Kontextanalyse ausfuehren
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python ai_context.py
+
+      - name: Aenderungen committen
+        run: |
+          git config user.name "gridiron-bot"
+          git config user.email "actions@github.com"
+          git pull --rebase --autostash origin main || true
+          git add data/ai_context.json
+          git diff --cached --quiet && echo "Keine Aenderungen" || git commit -m "KI-Kontext $(date -u +%F)"
+          git push
