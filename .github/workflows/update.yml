@@ -18,6 +18,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: gridiron-data
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -39,5 +43,15 @@ jobs:
           git config user.name "gridiron-bot"
           git config user.email "actions@github.com"
           git add data/ REPORT.md
-          git diff --cached --quiet && echo "Keine Aenderungen" || git commit -m "Daten-Update $(date -u +%F-%H%M)"
-          git push
+          if git diff --cached --quiet; then
+            echo "Keine Aenderungen"
+            exit 0
+          fi
+          git commit -m "Daten-Update $(date -u +%F-%H%M)"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "Push-Versuch $i fehlgeschlagen, neuer Anlauf..."
+            sleep $((i * 10))
+          done
+          echo "Push endgueltig fehlgeschlagen"
+          exit 1
