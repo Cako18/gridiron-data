@@ -347,6 +347,16 @@ def simulate_season(sched, teams, model, n_sims=10000):
             for t in codes}
 
 
+def market_prob(g, pick):
+    """Entvigte implizite Wahrscheinlichkeit des Picks aus den Moneylines."""
+    dh, da = ml_to_dec(g["home_moneyline"]), ml_to_dec(g["away_moneyline"])
+    if not dh or not da:
+        return None
+    ih, ia = 1 / dh, 1 / da
+    p_home = ih / (ih + ia)
+    return p_home if pick == g["home_team"] else 1 - p_home
+
+
 def vegas_duel(games_all, teams, model, season):
     """Friert Modell- und Vegas-Picks vor dem Spiel ein und rechnet spaeter ehrlich ab."""
     import csv, os
@@ -360,6 +370,13 @@ def vegas_duel(games_all, teams, model, season):
     cur = games_all[games_all["season"] == season]
     for _, g in cur.iterrows():
         key = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
+        # Nachtrag: alte Locks ohne Markt-Referenz bekommen sie, solange das Spiel noch nicht lief
+        if key in rows and pd.isna(g["home_score"]):
+            r = rows[key]
+            if len(r) < 6 or not r[5]:
+                pm = market_prob(g, r[1])
+                rows[key] = (list(r[:5]) + [""] * max(0, 5 - len(r)))[:5] + [f"{pm:.4f}" if pm is not None else ""]
+            continue
         if key in rows or pd.notna(g["home_score"]):
             continue
         if pd.isna(g["spread_line"]) or g["spread_line"] == 0:
@@ -373,17 +390,19 @@ def vegas_duel(games_all, teams, model, season):
             continue
         model_pick = g["home_team"] if p >= 0.5 else g["away_team"]
         vegas_pick = g["home_team"] if g["spread_line"] > 0 else g["away_team"]
+        p_mkt = market_prob(g, model_pick)
         rows[key] = [key, model_pick, vegas_pick, datetime.date.today().isoformat(),
-                     f"{max(p, 1 - p):.4f}"]
+                     f"{max(p, 1 - p):.4f}", f"{p_mkt:.4f}" if p_mkt is not None else ""]
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["key", "model_pick", "vegas_pick", "locked", "p_model"])
+        w.writerow(["key", "model_pick", "vegas_pick", "locked", "p_model", "p_mkt_lock"])
         w.writerows(rows.values())
     # Abrechnung
     stats = {"m": 0, "v": 0, "n": 0, "dis_n": 0, "dis_m": 0}
     # Kalibrierung: vorhergesagte vs. eingetretene Trefferquote pro Confidence-Bucket
     buckets = {"50-58": [0.50, 0.58], "58-70": [0.58, 0.70], "70+": [0.70, 1.01]}
     cal = {b: {"n": 0, "hit": 0, "p_sum": 0.0} for b in buckets}
+    clv = {"n": 0, "sum": 0.0, "pos": 0}
     for _, g in cur.iterrows():
         if pd.isna(g["home_score"]) or g["home_score"] == g["away_score"]:
             continue
@@ -410,6 +429,21 @@ def vegas_duel(games_all, teams, model, season):
                             cal[b]["hit"] += 1
             except ValueError:
                 pass
+        # CLV: Markt-Prob des Picks bei Lock vs. Schlusslinie (Lines nach Spielende = Closing)
+        if len(r) >= 6 and r[5]:
+            p_close = market_prob(g, mp)
+            if p_close is not None:
+                try:
+                    diff = p_close - float(r[5])
+                    clv["n"] += 1
+                    clv["sum"] += diff
+                    if diff > 0.001:
+                        clv["pos"] += 1
+                except ValueError:
+                    pass
+    stats["clv"] = {"n": clv["n"],
+                    "avg": round(100 * clv["sum"] / clv["n"], 2) if clv["n"] else 0,
+                    "pos": round(100 * clv["pos"] / clv["n"]) if clv["n"] else 0}
     stats["cal"] = {b: {"n": c["n"],
                         "pred": round(100 * c["p_sum"] / c["n"], 1) if c["n"] else 0,
                         "real": round(100 * c["hit"] / c["n"], 1) if c["n"] else 0}
@@ -528,6 +562,12 @@ def write_history_and_report(teams, sched, season, model, proj=None, duel=None):
                     lines.append(f"- {b} %: {c['n']} Spiele · vorhergesagt Ø {c['pred']} % · eingetreten {c['real']} %{flag}")
             lines.append("")
             lines.append("Gut kalibriert = beide Werte nah beieinander. ⚠ = Drift über 8 Punkte bei genug Spielen – Modell prüfen.")
+        clv = duel.get("clv", {"n": 0})
+        if clv["n"] > 0:
+            lines += ["", "### Closing Line Value", "",
+                      f"Ø CLV: {clv['avg']:+.2f} Prozentpunkte · {clv['pos']} % der Picks schlagen die Schlusslinie ({clv['n']} Spiele)",
+                      "",
+                      "CLV misst, ob sich der Markt nach unserem eingefrorenen Pick in unsere Richtung bewegt. Dauerhaft über 0 = echte Kante, unabhängig vom Glück einzelner Ergebnisse. Profis vertrauen dieser Zahl mehr als der Trefferquote."]
     elif duel is not None:
         lines += ["", "## Vegas-Duell", "", "Startet, sobald Quoten fuer kommende Spiele verfuegbar sind."]
     lines += ["", "---", "*Automatisch generiert von der Gridiron-Pipeline.*"]
