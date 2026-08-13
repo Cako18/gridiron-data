@@ -37,7 +37,7 @@ Keine nennenswerten Bewegungen (oder Historie startet gerade erst).
 - Bills: Ø 11.3 Siege · Playoffs 88 % · Division 58 %
 - Jaguars: Ø 11.3 Siege · Playoffs 87 % · Division 53 %
 - Rams: Ø 11.3 Siege · Playoffs 86 % · Division 23 %
-- Broncos: Ø 11.1 Siege · Playoffs 87 % · Division 75 %
+- Broncos: Ø 11.1 Siege · Playoffs 87 % · Division 74 %
 - Texans: Ø 10.9 Siege · Playoffs 82 % · Division 43 %
 - Lions: Ø 10.7 Siege · Playoffs 75 % · Division 45 %
 - Patriots: Ø 10.6 Siege · Playoffs 79 % · Division 39 %
