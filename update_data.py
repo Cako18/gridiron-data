@@ -48,6 +48,32 @@ NAMES = {"ARI": "Cardinals", "ATL": "Falcons", "BAL": "Ravens", "BUF": "Bills",
          "NYJ": "Jets", "PHI": "Eagles", "PIT": "Steelers", "SEA": "Seahawks",
          "SF": "49ers", "TB": "Buccaneers", "TEN": "Titans", "WAS": "Commanders"}
 
+# Historische Trefferquoten je Spiel-Archetyp (Walk-Forward 2018-2025, Basis 65.5 %)
+ARCHETYPES = {
+    "Heimfavorit":          {"hit": 69.0, "n": 1055},
+    "Gastfavorit":          {"hit": 68.6, "n": 423},
+    "Enges Spiel":          {"hit": 58.5, "n": 709},
+    "Division":             {"hit": 65.9, "n": 768},
+    "QB-Neuling":           {"hit": 70.4, "n": 253},
+    "Ruhe-Ungleichgewicht": {"hit": 65.1, "n": 470},
+    "Saisonstart":          {"hit": 63.8, "n": 373},
+}
+# Korrelation der Modellfehler zwischen Archetypen (wochenweise, 2018-2025)
+ARCH_CORR = {
+    "Heimfavorit":          {"Division": 0.30, "Enges Spiel": 0.00, "Ruhe-Ungleichgewicht": 0.32, "Gastfavorit": 0.05, "Saisonstart": 0.72},
+    "Division":             {"Heimfavorit": 0.30, "Enges Spiel": 0.32, "Ruhe-Ungleichgewicht": 0.28, "Gastfavorit": 0.12, "Saisonstart": 0.20},
+    "Enges Spiel":          {"Heimfavorit": 0.00, "Division": 0.32, "Ruhe-Ungleichgewicht": 0.19, "Gastfavorit": -0.01, "Saisonstart": 0.70},
+    "Ruhe-Ungleichgewicht": {"Heimfavorit": 0.32, "Division": 0.28, "Enges Spiel": 0.19, "Gastfavorit": 0.20, "Saisonstart": 0.30},
+    "Gastfavorit":          {"Heimfavorit": 0.05, "Division": 0.12, "Enges Spiel": -0.01, "Ruhe-Ungleichgewicht": 0.20, "Saisonstart": 0.32},
+    "Saisonstart":          {"Heimfavorit": 0.72, "Division": 0.20, "Enges Spiel": 0.70, "Ruhe-Ungleichgewicht": 0.30, "Gastfavorit": 0.32},
+}
+# Trefferquote bei deutlicher Marktabweichung (>=4 Punkte), nach dominanter Edge-Quelle
+EDGE_SOURCES = {
+    "qb_diff":  {"hit": 66.2, "n": 207, "label": "QB-Rating",    "trust": "hoch"},
+    "elo_diff": {"hit": 65.0, "n": 874, "label": "Elo/Form",     "trust": "hoch"},
+    "inj_diff": {"hit": 51.6, "n": 161, "label": "Verletzungen", "trust": "niedrig"},
+}
+
 DIVISIONS = {
     "AFC_East": ["BUF", "MIA", "NE", "NYJ"], "AFC_North": ["BAL", "CIN", "CLE", "PIT"],
     "AFC_South": ["HOU", "IND", "JAX", "TEN"], "AFC_West": ["DEN", "KC", "LAC", "LV"],
@@ -225,6 +251,19 @@ def main():
     sc = StandardScaler().fit(df[FEATURE_ORDER])
     lr = LogisticRegression(max_iter=1000).fit(sc.transform(df[FEATURE_ORDER]), df["y"])
     train_acc = (lr.predict(sc.transform(df[FEATURE_ORDER])) == df["y"]).mean()
+
+    # Bootstrap-Ensemble: misst, wie stabil eine Vorhersage gegenueber der Datenauswahl ist
+    print("  Bootstrap-Ensemble (20 Modelle) fuer Konfidenz...")
+    boot = []
+    rng_b = np.random.default_rng(11)
+    for _ in range(20):
+        s = df.sample(len(df), replace=True, random_state=int(rng_b.integers(1e6)))
+        sc_b = StandardScaler().fit(s[FEATURE_ORDER])
+        lr_b = LogisticRegression(max_iter=1000).fit(sc_b.transform(s[FEATURE_ORDER]), s["y"])
+        boot.append({"mean": [round(v, 5) for v in sc_b.mean_.tolist()],
+                     "scale": [round(v, 5) for v in sc_b.scale_.tolist()],
+                     "coef": [round(v, 5) for v in lr_b.coef_[0].tolist()],
+                     "intercept": round(float(lr_b.intercept_[0]), 5)})
     model = {"features": FEATURE_ORDER,
              "mean": [round(x, 5) for x in sc.mean_.tolist()],
              "scale": [round(x, 5) for x in sc.scale_.tolist()],
@@ -232,7 +271,7 @@ def main():
              "intercept": round(float(lr.intercept_[0]), 5),
              "home_adv_elo": HOME_ADV, "qb_repl": QB_REPL,
              "trained": datetime.date.today().isoformat(),
-             "train_games": int(len(df))}
+             "train_games": int(len(df)), "boot": boot}
     with open("data/model.json", "w") as f:
         json.dump(model, f, separators=(",", ":"))
     print(f"  Modell neu trainiert: {len(df)} Spiele, In-Sample {100*train_acc:.1f}%")
@@ -277,6 +316,39 @@ def main():
 
     with open("data/model.json") as f:
         model_now = json.load(f)
+    # Analyse je offenem Spiel: Konfidenz, Archetypen, Edge-Attribution
+    print("Analysiere kommende Spiele (Konfidenz, Archetypen, Edge)...")
+    analysis = {}
+    boot_models = model_now.get("boot", [])
+    for g in sched:
+        if g["hs"] is not None:
+            continue
+        p = predict_game(g, teams, model_now)
+        if p is None:
+            continue
+        key = f"{g['w']}-{g['a']}-{g['h']}"
+        entry = {"tags": game_archetypes(g, teams, model_now)}
+        # Konfidenz: Streuung der Bootstrap-Modelle
+        if boot_models:
+            x = feature_vector(g, teams, model_now)
+            ps = []
+            for bm in boot_models:
+                z = bm["intercept"]
+                for i, v in enumerate(x):
+                    z += bm["coef"][i] * ((v - bm["mean"][i]) / bm["scale"][i])
+                ps.append(1 / (1 + math.exp(-z)))
+            sd = float(np.std(ps))
+            entry["sd"] = round(100 * sd, 2)
+            entry["conf"] = "hoch" if sd < 0.012 else ("mittel" if sd < 0.022 else "niedrig")
+        ea = edge_attribution(g, teams, model_now, p)
+        if ea:
+            entry["edge"] = ea
+        # Erwartete Trefferquote nach Archetyp (Minimum der zutreffenden Typen)
+        hits = [ARCHETYPES[t]["hit"] for t in entry["tags"] if t in ARCHETYPES]
+        if hits:
+            entry["arch_hit"] = min(hits)
+        analysis[key] = entry
+
     print("Simuliere Saison (10.000 Durchlaeufe)...")
     proj = simulate_season(sched, teams, model_now)
     duel = vegas_duel(games_all, teams, model_now, current_season)
@@ -289,7 +361,8 @@ def main():
     out = {"generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
            "season": current_season, "last_result": str(games["gameday"].max()),
            "teams": teams, "schedule": sched, "proj": proj, "duel": duel,
-           "kiadj": kiadj}
+           "kiadj": kiadj, "analysis": analysis, "archetypes": ARCHETYPES,
+           "arch_corr": ARCH_CORR, "edge_sources": EDGE_SOURCES}
     with open("data/app_data.json", "w") as f:
         json.dump(out, f, separators=(",", ":"))
     print(f"OK: data/app_data.json geschrieben ({len(teams)} Teams, {len(sched)} Spiele Saison {current_season})")
@@ -390,11 +463,14 @@ def vegas_duel(games_all, teams, model, season):
             model_pick = g["home_team"] if p >= 0.5 else g["away_team"]
             vegas_pick = g["home_team"] if g["spread_line"] > 0 else g["away_team"]
             pm = market_prob(g, model_pick)
+            gg2 = dict(gg); gg2["mh"] = ml_to_dec(g["home_moneyline"]); gg2["ma"] = ml_to_dec(g["away_moneyline"])
+            ea = edge_attribution(gg2, teams, model, p)
             rows[key] = [key, model_pick, vegas_pick, datetime.date.today().isoformat(),
-                         f"{max(p, 1 - p):.4f}", f"{pm:.4f}" if pm is not None else ""]
+                         f"{max(p, 1 - p):.4f}", f"{pm:.4f}" if pm is not None else "",
+                         ea["src"] if ea else ""]
             continue
         # Bestehender Lock: fehlende Spalten nachtragen, solange das Spiel noch nicht lief
-        r = list(existing) + [""] * (6 - len(existing))
+        r = list(existing) + [""] * max(0, 7 - len(existing))
         if not played:
             if not r[4]:
                 gg = {"h": g["home_team"], "a": g["away_team"],
@@ -408,11 +484,11 @@ def vegas_duel(games_all, teams, model, season):
                 pm = market_prob(g, r[1])
                 if pm is not None:
                     r[5] = f"{pm:.4f}"
-        rows[key] = r[:6]
+        rows[key] = r[:7]
 
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["key", "model_pick", "vegas_pick", "locked", "p_model", "p_mkt_lock"])
+        w.writerow(["key", "model_pick", "vegas_pick", "locked", "p_model", "p_mkt_lock", "edge_src"])
         w.writerows(rows.values())
     # Abrechnung
     stats = {"m": 0, "v": 0, "n": 0, "dis_n": 0, "dis_m": 0}
@@ -420,6 +496,7 @@ def vegas_duel(games_all, teams, model, season):
     buckets = {"50-58": [0.50, 0.58], "58-70": [0.58, 0.70], "70+": [0.70, 1.01]}
     cal = {b: {"n": 0, "hit": 0, "p_sum": 0.0} for b in buckets}
     clv = {"n": 0, "sum": 0.0, "pos": 0}
+    by_src = {}
     for _, g in cur.iterrows():
         if pd.isna(g["home_score"]) or g["home_score"] == g["away_score"]:
             continue
@@ -435,6 +512,11 @@ def vegas_duel(games_all, teams, model, season):
         if mp != vp:
             stats["dis_n"] += 1
             if mp == winner: stats["dis_m"] += 1
+        if len(r) >= 7 and r[6]:
+            s = by_src.setdefault(r[6], {"n": 0, "hit": 0})
+            s["n"] += 1
+            if mp == winner:
+                s["hit"] += 1
         if len(r) >= 5:
             try:
                 pm = float(r[4])
@@ -458,6 +540,7 @@ def vegas_duel(games_all, teams, model, season):
                         clv["pos"] += 1
                 except ValueError:
                     pass
+    stats["by_src"] = {k: {"n": v["n"], "hit": round(100 * v["hit"] / v["n"])} for k, v in by_src.items() if v["n"] > 0}
     stats["clv"] = {"n": clv["n"],
                     "avg": round(100 * clv["sum"] / clv["n"], 2) if clv["n"] else 0,
                     "pos": round(100 * clv["pos"] / clv["n"]) if clv["n"] else 0}
@@ -466,6 +549,77 @@ def vegas_duel(games_all, teams, model, season):
                         "real": round(100 * c["hit"] / c["n"], 1) if c["n"] else 0}
                     for b, c in cal.items()}
     return stats
+
+
+def feature_vector(g, teams, model, adj_home=0, adj_away=0):
+    """Feature-Vektor in der Reihenfolge von model["features"] - oder None."""
+    h, a = teams.get(g["h"]), teams.get(g["a"])
+    if not h or not a:
+        return None
+    hr, ar = g.get("hr", 7), g.get("ar", 7)
+    hour = 99
+    try:
+        hour = int(str(g.get("t", ""))[:2])
+    except (ValueError, TypeError):
+        pass
+    return [
+        (h["elo"] + adj_home) + model["home_adv_elo"] - (a["elo"] + adj_away),
+        h.get("qb", 0) - a.get("qb", 0),
+        h["off_epa"] - a["off_epa"],
+        a["def_epa"] - h["def_epa"],
+        h["cpoe"] - a["cpoe"],
+        hr - ar,
+        a.get("inj", 0) - h.get("inj", 0),
+        a.get("qb_new", 0) - h.get("qb_new", 0),
+        (1 if hr >= 13 else 0) - (1 if ar >= 13 else 0),
+        abs(TZ.get(g["h"], 0) - TZ.get(g["a"], 0)),
+        1 if (TZ.get(g["a"], 0) - TZ.get(g["h"], 0)) <= -2 and hour <= 13 else 0,
+    ]
+
+
+def game_archetypes(g, teams, model):
+    """Archetyp-Tags eines Spiels - identisch zur Backtest-Definition."""
+    x = feature_vector(g, teams, model)
+    if x is None:
+        return []
+    tags = []
+    tags.append("Heimfavorit" if x[0] > 60 else ("Gastfavorit" if x[0] < -60 else "Enges Spiel"))
+    if g.get("dv") == 1:
+        tags.append("Division")
+    h, a = teams.get(g["h"], {}), teams.get(g["a"], {})
+    if h.get("qb_new") or a.get("qb_new"):
+        tags.append("QB-Neuling")
+    if abs(g.get("hr", 7) - g.get("ar", 7)) >= 3:
+        tags.append("Ruhe-Ungleichgewicht")
+    if g.get("w", 99) <= 3:
+        tags.append("Saisonstart")
+    return tags
+
+
+def edge_attribution(g, teams, model, p_model):
+    """Zerlegt die Abweichung vom Markt in Feature-Beitraege.
+    Rueckgabe: (edge in Punkten, dominante Quelle, Beitragsliste) oder None."""
+    dh, da = g.get("mh"), g.get("ma")
+    if not dh or not da:
+        return None
+    ih, ia = 1 / dh, 1 / da
+    p_mkt = ih / (ih + ia)
+    x = feature_vector(g, teams, model)
+    if x is None:
+        return None
+    parts = []
+    for i, f in enumerate(model["features"]):
+        z = (x[i] - model["mean"][i]) / model["scale"][i] * model["coef"][i]
+        parts.append((f, z))
+    # Beitraege relativ zum neutralen Spiel (z=0) -> groesster Betrag = dominante Quelle
+    parts.sort(key=lambda t: -abs(t[1]))
+    top = parts[0][0]
+    return {"edge": round(100 * (p_model - p_mkt), 1),
+            "p_mkt": round(100 * p_mkt, 1),
+            "src": top,
+            "src_label": EDGE_SOURCES.get(top, {}).get("label", top),
+            "trust": EDGE_SOURCES.get(top, {}).get("trust", "unbekannt"),
+            "parts": [[f, round(z, 3)] for f, z in parts[:4]]}
 
 
 def predict_game(g, teams, model, adj_home=0, adj_away=0):
