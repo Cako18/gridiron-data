@@ -57,3 +57,6 @@ key,model_pick,vegas_pick,locked,p_model,p_mkt_lock,edge_src
 4-NE-BUF,BUF,BUF,2026-08-14,0.6055,0.5930,qb_diff
 4-JAX-CIN,JAX,CIN,2026-08-14,0.5733,0.4485,elo_diff
 4-ARI-NYG,NYG,NYG,2026-08-14,0.5767,0.7261,elo_diff
+4-MIA-MIN,MIN,MIN,2026-08-15,0.6540,0.7505,elo_diff
+4-KC-LV,KC,KC,2026-08-15,0.7053,0.6751,elo_diff
+4-LAC-SEA,SEA,SEA,2026-08-15,0.8146,0.6095,elo_diff
