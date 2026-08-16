@@ -167,7 +167,7 @@ def compute_elo(games):
         mult = math.log(abs(pdf) + 1) * (2.2 / ((d if hs > as_ else -d) * 0.001 + 2.2)) if pdf else 1.0
         s = K * mult * (act - p)
         elo[h] += s; elo[a] -= s
-    return eh, ea, elo
+    return eh, ea, elo, cur
 
 
 def main():
@@ -178,7 +178,14 @@ def main():
     current_season = int(games_all["season"].max())
     print(f"  {len(games)} gewertete Spiele, aktuelle Saison: {current_season}")
 
-    eh, ea, elo = compute_elo(games)
+    eh, ea, elo, last_elo_season = compute_elo(games)
+    # Wenn die neue Saison noch kein Spiel hat, steht die Regression noch aus.
+    # Ohne sie waeren alle Vorhersagen auf Basis unregressierter Vorjahres-Ratings
+    # zu extrem (Favoriten zu stark, Aussenseiter zu schwach).
+    if int(last_elo_season) < current_season:
+        for t in list(elo):
+            elo[t] += REG * (START - elo[t])
+        print(f"  Saison-Regression angewandt ({last_elo_season} -> {current_season})")
     games["elo_home"], games["elo_away"] = eh, ea
     games["elo_diff"] = games["elo_home"] + HOME_ADV - games["elo_away"]
 
@@ -395,6 +402,10 @@ def main():
     lineup_season = current_season if current_season in stat_seasons else last_played
     try:
         lineups, player_rate = build_lineups(lineup_season, team_qb)
+        if not lineups and lineup_season > STATS_FROM:
+            lineup_season -= 1          # Saison laeuft, Statistiken noch nicht publiziert
+            print(f"  Keine Daten fuer {lineup_season + 1} - weiche auf {lineup_season} aus")
+            lineups, player_rate = build_lineups(lineup_season, team_qb)
     except Exception as e:
         print(f"  (Aufstellungen uebersprungen: {e})")
         lineups, player_rate = {}, {}
@@ -545,7 +556,7 @@ def build_lineups(season, team_qb=None):
     snaps = fetch_csv(SNAP_URL.format(y=season))
     pstats = fetch_csv(PSTAT_URL.format(y=season))
     if snaps is None or pstats is None or not len(snaps):
-        return {}
+        return {}, {}
 
     # --- Starter je Team ueber die letzten 6 Wochen ---
     last_wk = snaps["week"].max()
