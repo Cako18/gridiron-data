@@ -32,6 +32,25 @@ DEF_POS = ["DE", "DT", "NT", "EDGE", "DL", "LB", "OLB", "ILB", "MLB", "CB", "S",
 LINEUP_SLOTS = {"QB": 1, "RB": 1, "WR": 3, "TE": 1, "OL": 5, "DL": 4, "LB": 3, "DB": 4}
 
 
+def norm_name(n):
+    """Vereinheitlicht Schreibweisen: Punkte, Suffixe, Gross-/Kleinschreibung."""
+    if not isinstance(n, str):
+        return ""
+    s = n.lower().replace(".", "").replace("'", "").replace("-", " ")
+    for suf in (" jr", " sr", " ii", " iii", " iv", " v"):
+        if s.endswith(suf):
+            s = s[: -len(suf)]
+    return " ".join(s.split())
+
+
+def lookup_rating(rate, name, team):
+    """Rating per (Name, Team), sonst per normalisiertem Namen."""
+    v = rate.get((name, team))
+    if v is not None:
+        return v
+    return rate.get(norm_name(name))
+
+
 def pos_group(p):
     if p in ("T", "G", "C", "OL", "OT", "OG"):
         return "OL"
@@ -501,7 +520,7 @@ def build_depth_charts(season, rate, inj_status):
                     if not isinstance(nm, str) or not nm.strip():
                         continue                      # leere Namen -> kein NaN im JSON
                     e = {"n": nm, "d": int(r["pos_rank"])}
-                    rt = rate.get((nm, team))
+                    rt = lookup_rating(rate, nm, team)
                     if rt:
                         e["r"] = rt
                     st = inj_status.get((nm, team))
@@ -568,10 +587,10 @@ def build_lineups(season, team_qb=None):
 
     OFF_GRPS, DEF_GRPS = {"QB", "RB", "WR", "TE"}, {"DL", "LB", "DB"}
     grp["score"] = np.nan
-    off_mask = grp["grp"].isin(OFF_GRPS) & (grp["opps"] >= 20)
+    off_mask = grp["grp"].isin(OFF_GRPS) & (grp["opps"] >= 8)
     grp.loc[off_mask, "score"] = (grp.loc[off_mask, "off_epa"]
                                   / grp.loc[off_mask, "opps"].clip(lower=1))
-    def_mask = grp["grp"].isin(DEF_GRPS) & (grp["wk"] >= 3)
+    def_mask = grp["grp"].isin(DEF_GRPS) & (grp["wk"] >= 2)
     grp.loc[def_mask, "score"] = ((2.0 * grp["sacks"] + 1.0 * grp["qbh"] + 1.5 * grp["tfl"]
                                    + 3.0 * grp["ints"] + 1.2 * grp["pd_"] + 2.0 * grp["ff"]
                                    + 0.25 * grp["tkl"]) / grp["wk"].clip(lower=1))[def_mask]
@@ -584,7 +603,10 @@ def build_lineups(season, team_qb=None):
         lo, hi = sub["score"].quantile(0.10), sub["score"].quantile(0.90)
         for _, r in sub.iterrows():
             v = (r["score"] - lo) / (hi - lo) if hi > lo else 0.5
-            rate[(r["player_display_name"], r["team"])] = int(round(45 + 53 * min(1, max(0, v))))
+            val = int(round(45 + 53 * min(1, max(0, v))))
+            rate[(r["player_display_name"], r["team"])] = val
+            # Zusaetzlich nur nach Namen: faengt Spieler ab, die das Team gewechselt haben
+            rate[norm_name(r["player_display_name"])] = val
 
     # --- Aufstellung zusammenstellen ---
     out = {}
@@ -607,7 +629,7 @@ def build_lineups(season, team_qb=None):
             for _, r in sel.iterrows():
                 entry = {"n": r["player"], "p": r["position"],
                          "s": int(round(100 * r["snap_pct"]))}
-                rt = rate.get((r["player"], team))
+                rt = lookup_rating(rate, r["player"], team)
                 if rt:
                     entry["r"] = rt
                 side["off" if g_ in ("QB", "RB", "WR", "TE", "OL") else "def"].append(entry)
