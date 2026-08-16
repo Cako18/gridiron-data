@@ -587,20 +587,36 @@ def build_lineups(season, team_qb=None):
 
     OFF_GRPS, DEF_GRPS = {"QB", "RB", "WR", "TE"}, {"DL", "LB", "DB"}
     grp["score"] = np.nan
+    grp["nobs"] = 0.0
     off_mask = grp["grp"].isin(OFF_GRPS) & (grp["opps"] >= 8)
     grp.loc[off_mask, "score"] = (grp.loc[off_mask, "off_epa"]
                                   / grp.loc[off_mask, "opps"].clip(lower=1))
+    grp.loc[off_mask, "nobs"] = grp.loc[off_mask, "opps"]
     def_mask = grp["grp"].isin(DEF_GRPS) & (grp["wk"] >= 2)
     grp.loc[def_mask, "score"] = ((2.0 * grp["sacks"] + 1.0 * grp["qbh"] + 1.5 * grp["tfl"]
                                    + 3.0 * grp["ints"] + 1.2 * grp["pd_"] + 2.0 * grp["ff"]
                                    + 0.25 * grp["tkl"]) / grp["wk"].clip(lower=1))[def_mask]
+    grp.loc[def_mask, "nobs"] = grp.loc[def_mask, "wk"] * 8   # Spiele -> vergleichbare Skala
+
+    # Empirisches Bayes-Shrinkage: wenig Einsatzzeit -> Rating naeher am Gruppendurchschnitt.
+    # Verhindert, dass ein Backup mit 10 guten Baellen ueber dem Starter landet.
+    SHRINK_K = 60.0
+    for g_name, sub in grp[grp["score"].notna()].groupby("grp"):
+        prior = float(np.average(sub["score"], weights=sub["nobs"].clip(lower=1)))
+        w = sub["nobs"] / (sub["nobs"] + SHRINK_K)
+        grp.loc[sub.index, "score"] = w * sub["score"] + (1 - w) * prior
 
     # Normierung INNERHALB der Positionsgruppe -> QB vergleicht sich mit QBs
     rate = {}
     for g_name, sub in grp[grp["score"].notna()].groupby("grp"):
         if len(sub) < 8:
             continue
-        lo, hi = sub["score"].quantile(0.10), sub["score"].quantile(0.90)
+        # Skala an Spielern mit echter Einsatzzeit eichen - sonst staucht die
+        # geschrumpfte Backup-Masse die Spanne und alle Starter landen am Anschlag
+        ref = sub[sub["nobs"] >= 40]
+        if len(ref) < 8:
+            ref = sub
+        lo, hi = ref["score"].quantile(0.10), ref["score"].quantile(0.90)
         for _, r in sub.iterrows():
             v = (r["score"] - lo) / (hi - lo) if hi > lo else 0.5
             val = int(round(45 + 53 * min(1, max(0, v))))
