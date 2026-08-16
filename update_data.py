@@ -419,7 +419,7 @@ def main():
            "lineups": lineups, "depth": depth, "line_moves": line_moves, "lineup_season": lineup_season,
            "arch_corr": ARCH_CORR, "edge_sources": EDGE_SOURCES}
     with open("data/app_data.json", "w") as f:
-        json.dump(out, f, separators=(",", ":"))
+        json.dump(out, f, separators=(",", ":"), allow_nan=False)
     print(f"OK: data/app_data.json geschrieben ({len(teams)} Teams, {len(sched)} Spiele Saison {current_season})")
 
     write_history_and_report(line_moves, teams, sched, current_season, model, proj, duel)
@@ -498,6 +498,8 @@ def build_depth_charts(season, rate, inj_status):
                 players = []
                 for _, r in sg.iterrows():
                     nm = r["player_name"]
+                    if not isinstance(nm, str) or not nm.strip():
+                        continue                      # leere Namen -> kein NaN im JSON
                     e = {"n": nm, "d": int(r["pos_rank"])}
                     rt = rate.get((nm, team))
                     if rt:
