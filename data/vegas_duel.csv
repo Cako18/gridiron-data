@@ -111,3 +111,5 @@ key,model_pick,vegas_pick,locked,p_model,p_mkt_lock,edge_src
 16-GB-CHI,CHI,CHI,2026-08-16,0.5045,0.5195,qb_diff
 16-BUF-DEN,DEN,BUF,2026-08-16,0.5093,0.4536,cpoe_diff
 16-LA-SEA,SEA,LA,2026-08-16,0.6519,0.4844,elo_diff
+7-SF-ATL,SF,SF,2026-08-17,0.5823,0.6573,elo_diff
+7-MIA-NYJ,MIA,NYJ,2026-08-17,0.7166,0.4485,qb_diff
