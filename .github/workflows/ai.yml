@@ -2,10 +2,10 @@ name: KI-Kontextanalyse
 
 on:
   schedule:
-    # Donnerstags 08:00 UTC - vor dem ersten Spiel der Woche
-    - cron: "0 8 * * 4"
-    # Sonntags 15:00 UTC - nach den finalen Injury Reports
-    - cron: "0 15 * * 0"
+    # Sonntags 15:45 UTC = 11:45 ET - kurz nach den Inactives der Fruehspiele
+    # (die 90 Minuten vor dem 13:00-ET-Kickoff veroeffentlicht werden) und damit
+    # nach dem offiziellen Freitags-Gamestatus (Out/Doubtful/Questionable).
+    - cron: "45 15 * * 0"
   workflow_dispatch: {}
 
 permissions:
@@ -31,6 +31,7 @@ jobs:
         run: python ai_context.py
 
       - name: Aenderungen committen
+        if: success()
         run: |
           git config user.name "gridiron-bot"
           git config user.email "actions@github.com"
@@ -40,7 +41,6 @@ jobs:
             exit 0
           fi
           git commit -m "KI-Kontext $(date -u +%F-%H%M)"
-          # Mehrere Versuche, falls parallel ein anderer Lauf gepusht hat
           for i in 1 2 3 4 5; do
             git pull --rebase origin main && git push && exit 0
             echo "Push-Versuch $i fehlgeschlagen, neuer Anlauf..."
