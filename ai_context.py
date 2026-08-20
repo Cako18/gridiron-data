@@ -46,8 +46,16 @@ def call_claude(api_key, prompt):
             API_URL, data=json.dumps(payload).encode(),
             headers={"content-type": "application/json", "x-api-key": api_key,
                      "anthropic-version": "2023-06-01"})
-        with urllib.request.urlopen(req, timeout=180) as r:
-            data = json.loads(r.read())
+        try:
+            with urllib.request.urlopen(req, timeout=180) as r:
+                data = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try:
+                detail = e.read().decode()[:300]
+            except Exception:
+                pass
+            raise urllib.error.HTTPError(e.url, e.code, f"{e.reason} | {detail}", e.headers, None)
         content = data.get("content", [])
         messages.append({"role": "assistant", "content": content})
         text += "".join(b.get("text", "") for b in content if b.get("type") == "text")
@@ -85,8 +93,10 @@ def main():
 
     try:
         with open("data/ai_context.json") as f:
-            ctx = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+            loaded = json.load(f)
+        ctx = loaded.get("games", loaded) if isinstance(loaded, dict) else {}
+        ctx = {k: v for k, v in ctx.items() if isinstance(v, dict) and "ha" in v}
+    except (FileNotFoundError, json.JSONDecodeError, AttributeError):
         ctx = {}
 
     today = datetime.date.today().isoformat()
@@ -117,7 +127,7 @@ def main():
         except (urllib.error.HTTPError, urllib.error.URLError, ValueError, KeyError) as e:
             msg = str(e)
             if isinstance(e, urllib.error.HTTPError):
-                msg = f"HTTP {e.code}"
+                msg = f"HTTP {e.code}: {e.reason}"
                 if e.code in (401, 403):
                     print(f"  Abbruch: {msg} - API-Key pruefen.")
                     break
@@ -126,7 +136,13 @@ def main():
         time.sleep(2)
 
     # Alte Eintraege vergangener Wochen aufraeumen
-    ctx = {k: v for k, v in ctx.items() if int(k.split("-")[0]) >= week}
+    def _week_of(key):
+        try:
+            return int(str(key).split("-")[0])
+        except (ValueError, TypeError):
+            return None
+    ctx = {k: v for k, v in ctx.items()
+           if _week_of(k) is not None and _week_of(k) >= week}
     with open("data/ai_context.json", "w") as f:
         json.dump({"generated": today, "week": week, "games": ctx}, f, separators=(",", ":"))
     print(f"OK: data/ai_context.json (Woche {week}: {done} neu, {skipped} aktuell, {failed} Fehler)")
