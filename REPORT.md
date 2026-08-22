@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-08-21 · Saison 2026 · Modell trainiert auf 3998 Spielen (2026-08-21)
+Stand: 2026-08-22 · Saison 2026 · Modell trainiert auf 3998 Spielen (2026-08-22)
 
 ## Woche 1 – Picks
 
@@ -29,12 +29,7 @@ Stand: 2026-08-21 · Saison 2026 · Modell trainiert auf 3998 Spielen (2026-08-2
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
-- ▼ Seahawks: -86 (jetzt 1675)
-- ▲ Raiders: +75 (jetzt 1348)
-- ▲ Titans: +71 (jetzt 1356)
-- ▲ Jets: +69 (jetzt 1360)
-- ▲ Cardinals: +54 (jetzt 1390)
-- ▼ Rams: -53 (jetzt 1607)
+Keine nennenswerten Bewegungen (oder Historie startet gerade erst).
 
 ## Saisonprojektion (10.000 Simulationen)
 
