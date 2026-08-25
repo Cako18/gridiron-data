@@ -32,6 +32,17 @@ DEF_POS = ["DE", "DT", "NT", "EDGE", "DL", "LB", "OLB", "ILB", "MLB", "CB", "S",
 LINEUP_SLOTS = {"QB": 1, "RB": 1, "WR": 3, "TE": 1, "OL": 5, "DL": 4, "LB": 3, "DB": 4}
 
 
+def lookup_qb_rating(qb_rating, name):
+    """Karriere-Rating eines QB - direkt oder ueber normalisierten Namen."""
+    if name in qb_rating:
+        return qb_rating[name]
+    target = norm_name(name)
+    for k, v in qb_rating.items():
+        if norm_name(k) == target:
+            return v
+    return None
+
+
 def norm_name(n):
     """Vereinheitlicht Schreibweisen: Punkte, Suffixe, Gross-/Kleinschreibung."""
     if not isinstance(n, str):
@@ -231,7 +242,11 @@ def main():
     games["qb_h"], games["qb_a"] = qh, qa
     games["qb_new_h"], games["qb_new_a"] = qnh, qna
 
-    # Haeufigster Starter pro Team der letzten gespielten Saison
+    # ---------- Aktueller Starting-QB ----------
+    # WICHTIG: Der Starter kommt aus dem OFFIZIELLEN DEPTH CHART, nicht aus der
+    # Vorsaison. Sonst rechnet das Modell mit Quarterbacks, die das Team laengst
+    # verlassen haben - der haeufigste Fehler beim Saisonwechsel. Bewertet wird
+    # dann die Karriere-Historie genau dieses Spielers.
     last_played = int(games["season"].max())
     starts = defaultdict(Counter)
     for _, g in games[games["season"] == last_played].iterrows():
@@ -239,11 +254,43 @@ def main():
             starts[g["home_team"]][g["home_qb_name"]] += 1
         if isinstance(g["away_qb_name"], str):
             starts[g["away_team"]][g["away_qb_name"]] += 1
+
+    depth_qb = {}
+    dc_raw = fetch_csv(DEPTH_URL.format(y=current_season))
+    if dc_raw is None or not len(dc_raw):
+        dc_raw = fetch_csv(DEPTH_URL.format(y=last_played))
+    if dc_raw is not None and len(dc_raw):
+        dc_raw = dc_raw[dc_raw["dt"] == dc_raw["dt"].max()]
+        qbs = dc_raw[(dc_raw["pos_abb"] == "QB") & (dc_raw["pos_rank"] == 1)]
+        for _, r in qbs.iterrows():
+            if isinstance(r["player_name"], str) and r["team"] not in depth_qb:
+                depth_qb[r["team"]] = r["player_name"].strip()
+        print(f"  Starting-QB aus Depth Chart: {len(depth_qb)} Teams")
+
     team_qb = {}
-    for t, cnt in starts.items():
-        q = cnt.most_common(1)[0][0]
-        team_qb[t] = {"name": q, "rating": round(qb_rating.get(q, QB_REPL), 4),
-                      "new": 1 if qb_starts.get(q, 0) < QB_MIN_STARTS else 0}
+    for t in sorted(set(games["home_team"]) | set(games["away_team"])):
+        name = depth_qb.get(t)
+        source = "depth"
+        if not name:                                   # Rueckfall auf die Vorsaison
+            cnt = starts.get(t)
+            if not cnt:
+                continue
+            name = cnt.most_common(1)[0][0]
+            source = "vorsaison"
+        rating = lookup_qb_rating(qb_rating, name)
+        n_starts = qb_starts.get(name, 0)
+        if n_starts < QB_MIN_STARTS:
+            n_starts = max(n_starts, qb_starts.get(norm_name(name), 0))
+        team_qb[t] = {"name": name,
+                      "rating": round(rating if rating is not None else QB_REPL, 4),
+                      "new": 1 if (rating is None or n_starts < QB_MIN_STARTS) else 0,
+                      "src": source}
+    changed = [t for t in team_qb
+               if starts.get(t) and team_qb[t]["name"] != starts[t].most_common(1)[0][0]]
+    if changed:
+        print(f"  QB-Wechsel gegenueber Vorsaison bei {len(changed)} Teams: "
+              + ", ".join(f"{t} -> {team_qb[t]['name']}" for t in changed[:6])
+              + (" ..." if len(changed) > 6 else ""))
 
     # ---------- Injuries: Historie fuers Training + aktueller Stand ----------
     print("Lade Injuries...")
