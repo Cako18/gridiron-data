@@ -7,6 +7,7 @@ Laeuft per GitHub Action:
 4. Schreibt data/app_data.json, data/model.json, data/elo_history.csv, REPORT.md
 """
 import io
+import sys
 import json
 import math
 import datetime
@@ -221,7 +222,26 @@ def main():
     latest = stats.groupby("team").tail(1).set_index("team")
 
     # ---------- QB-Ratings ----------
-    qperf = stats.set_index(["game_id", "team"])["pass_epa_pp"].to_dict()
+    # Bewertet wird die Leistung des SPIELERS (Pass + Lauf), nicht die des Teams.
+    # Die alte Team-Zuordnung schrieb einem Quarterback die Bilanz aller Passspiele
+    # seines Teams zu - inklusive der Snaps seines Vertreters. Laufstarke QBs wurden
+    # ausserdem systematisch unterschaetzt. Backtest: 64,11 % -> 64,33 %.
+    qperf = {}
+    pframes = [df_ for y in range(max(STATS_FROM, current_season - 12), current_season + 1)
+               if (df_ := fetch_csv(PSTAT_URL.format(y=y))) is not None]
+    if pframes:
+        pl = pd.concat(pframes, ignore_index=True)
+        pl = pl[pl["position"] == "QB"].copy()
+        for c in ["attempts", "sacks_suffered", "passing_epa", "carries", "rushing_epa"]:
+            if c not in pl.columns:
+                pl[c] = 0
+            pl[c] = pl[c].fillna(0)
+        pl["vol"] = pl["attempts"] + pl["sacks_suffered"] + pl["carries"]
+        pl = pl[pl["vol"] >= 10]
+        pl["qb_epa"] = (pl["passing_epa"] + pl["rushing_epa"]) / pl["vol"].clip(lower=1)
+        for _, r in pl.iterrows():
+            qperf[(int(r["season"]), int(r["week"]), r["player_display_name"])] = float(r["qb_epa"])
+        print(f"  QB-Leistungen aus Spielerstatistik: {len(qperf)} Auftritte")
     qb_rating, qb_starts = {}, defaultdict(int)
     stat_seasons = set(stats["season"].unique())
     qh, qa, qnh, qna = [], [], [], []
@@ -233,12 +253,12 @@ def main():
             n = qb_starts[qb]
             arr.append(qb_rating.get(qb, QB_REPL) if n >= QB_MIN_STARTS else QB_REPL)
             narr.append(1 if n < QB_MIN_STARTS else 0)
-            if g["season"] in stat_seasons:
-                obs = qperf.get((g["game_id"], g[f"{side}_team"]))
-                if obs is not None and not pd.isna(obs):
-                    r = qb_rating.get(qb, obs)
-                    qb_rating[qb] = r + QB_ALPHA * (obs - r)
-                    qb_starts[qb] += 1
+            wk = pd.to_numeric(g["week"], errors="coerce")
+            obs = qperf.get((int(g["season"]), int(wk), qb)) if pd.notna(wk) else None
+            if obs is not None:
+                r = qb_rating.get(qb, obs)
+                qb_rating[qb] = r + QB_ALPHA * (obs - r)
+                qb_starts[qb] += 1
     games["qb_h"], games["qb_a"] = qh, qa
     games["qb_new_h"], games["qb_new_a"] = qnh, qna
 
@@ -495,6 +515,10 @@ def main():
            "kiadj": kiadj, "analysis": analysis, "archetypes": ARCHETYPES,
            "lineups": lineups, "depth": depth, "line_moves": line_moves, "lineup_season": lineup_season,
            "arch_corr": ARCH_CORR, "edge_sources": EDGE_SOURCES}
+    if not sanity_checks(out, model_now, sched, teams, proj):
+        print("Abbruch: Daten werden NICHT veroeffentlicht.")
+        sys.exit(1)
+
     with open("data/app_data.json", "w") as f:
         json.dump(out, f, separators=(",", ":"), allow_nan=False)
     print(f"OK: data/app_data.json geschrieben ({len(teams)} Teams, {len(sched)} Spiele Saison {current_season})")
@@ -952,6 +976,75 @@ def edge_attribution(g, teams, model, p_model):
             "trust": EDGE_SOURCES.get(top, {}).get("trust", "unbekannt"),
             "parts": [[f, round(z, 3)] for f, z in parts[:4]]}
 
+
+
+
+def sanity_checks(out, model, sched, teams, proj):
+    """Prueft die Ergebnisse vor der Veroeffentlichung. Schlaegt eine Pruefung fehl,
+    bricht der Lauf ab - besser keine neuen Daten als stille Fehler in der Bilanz."""
+    problems = []
+
+    elos = [t["elo"] for t in teams.values()]
+    if not elos:
+        problems.append("keine Team-Ratings")
+    else:
+        mean_elo = sum(elos) / len(elos)
+        if abs(mean_elo - START) > 25:
+            problems.append(f"Elo-Mittelwert {mean_elo:.1f} statt ~{START}")
+        if min(elos) < 1000 or max(elos) > 2000:
+            problems.append(f"Elo ausserhalb plausibler Grenzen ({min(elos):.0f}-{max(elos):.0f})")
+
+    ohne_qb = [t for t, v in teams.items() if not v.get("qb_name")]
+    if ohne_qb:
+        problems.append(f"Teams ohne Starting-QB: {', '.join(sorted(ohne_qb))}")
+
+    probs = []
+    for g in sched:
+        if g["hs"] is not None:
+            continue
+        p = predict_game(g, teams, model)
+        if p is None:
+            continue
+        if not (0 < p < 1):
+            problems.append(f"ungueltige Wahrscheinlichkeit {p} bei {g['a']}@{g['h']}")
+            break
+        probs.append(p)
+    if probs:
+        heim = sum(1 for p in probs if p >= 0.5) / len(probs)
+        if not (0.45 <= heim <= 0.80):
+            problems.append(f"Heimsieg-Anteil unplausibel: {100*heim:.0f} %")
+        if max(probs) > 0.97 or min(probs) < 0.03:
+            problems.append(f"extreme Vorhersage ({100*min(probs):.1f} % / {100*max(probs):.1f} %)")
+
+    if proj:
+        siege = sum(p["w"] for p in proj.values())
+        n_games = len([g for g in sched if g.get("w")])
+        if n_games and abs(siege - n_games) > max(4, n_games * 0.02):
+            problems.append(f"Projektion summiert {siege:.1f} Siege statt {n_games}")
+        po = sum(p["po"] for p in proj.values()) / 100
+        if abs(po - 14) > 0.8:
+            problems.append(f"Playoff-Summe {po:.1f} statt 14")
+
+    quoten = [(g["mh"], g["ma"]) for g in sched if g.get("mh") and g.get("ma")]
+    if quoten:
+        vig = sum(1 / a + 1 / b for a, b in quoten) / len(quoten)
+        if not (1.0 <= vig <= 1.15):
+            problems.append(f"Quoten-Marge unplausibel: {100*(vig-1):.1f} %")
+
+    try:
+        raw = json.dumps(out, allow_nan=False)
+        if "NaN" in raw or "Infinity" in raw:
+            problems.append("ungueltige Zahlen im JSON")
+    except (ValueError, TypeError) as e:
+        problems.append(f"JSON nicht serialisierbar: {e}")
+
+    if problems:
+        print("PLAUSIBILITAETSPRUEFUNG FEHLGESCHLAGEN:")
+        for p in problems:
+            print(f"  - {p}")
+        return False
+    print("Plausibilitaetspruefung: alle Kontrollen bestanden")
+    return True
 
 def predict_game(g, teams, model, adj_home=0, adj_away=0):
     h, a = teams.get(g["h"]), teams.get(g["a"])
