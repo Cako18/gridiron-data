@@ -1,11 +1,9 @@
 # Gridiron Wochenreport
 
-Stand: 2026-09-09 · Saison 2026 · Modell trainiert auf 3998 Spielen (2026-09-09)
+Stand: 2026-09-10 · Saison 2026 · Modell trainiert auf 3999 Spielen (2026-09-10)
 
 ## Woche 1 – Picks
 
-**2026-09-09**
-- Seahawks über Patriots – 61 % · KI ▲ 62 %
 **2026-09-10**
 - Rams über 49ers – 66 % · KI ▲ 68 %
 **2026-09-13**
@@ -29,22 +27,35 @@ Stand: 2026-09-09 · Saison 2026 · Modell trainiert auf 3998 Spielen (2026-09-0
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
-Keine nennenswerten Bewegungen (oder Historie startet gerade erst).
+- ▼ Patriots: -8 (jetzt 1584)
+- ▲ Seahawks: +8 (jetzt 1684)
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- Seahawks: Ø 11.9 Siege · Playoffs 91 % · Division 57 %
-- Bills: Ø 11.3 Siege · Playoffs 90 % · Division 63 %
-- Jaguars: Ø 10.8 Siege · Playoffs 84 % · Division 55 %
-- Rams: Ø 10.8 Siege · Playoffs 78 % · Division 30 %
-- Broncos: Ø 10.5 Siege · Playoffs 80 % · Division 65 %
-- Ravens: Ø 10.4 Siege · Playoffs 78 % · Division 54 %
-- Patriots: Ø 10.3 Siege · Playoffs 76 % · Division 35 %
+- Seahawks: Ø 12.4 Siege · Playoffs 95 % · Division 68 %
+- Bills: Ø 11.4 Siege · Playoffs 90 % · Division 71 %
+- Jaguars: Ø 10.8 Siege · Playoffs 83 % · Division 55 %
+- Broncos: Ø 10.6 Siege · Playoffs 82 % · Division 65 %
+- Rams: Ø 10.6 Siege · Playoffs 75 % · Division 23 %
+- Ravens: Ø 10.4 Siege · Playoffs 78 % · Division 55 %
 - Eagles: Ø 10.1 Siege · Playoffs 73 % · Division 64 %
+- Lions: Ø 10.0 Siege · Playoffs 64 % · Division 34 %
 
 ## Vegas-Duell
 
-Startet, sobald Quoten fuer kommende Spiele verfuegbar sind.
+Modell 1/1 (100.0 %) vs. Vegas 1/1 (100.0 %)
+
+### Kalibrierung (vorhergesagt vs. eingetreten)
+
+- 58-70 %: 1 Spiele · vorhergesagt Ø 63.9 % · eingetreten 100.0 %
+
+Gut kalibriert = beide Werte nah beieinander. ⚠ = Drift über 8 Punkte bei genug Spielen – Modell prüfen.
+
+### Closing Line Value
+
+Ø CLV: -1.58 Prozentpunkte · 0 % der Picks schlagen die Schlusslinie (1 Spiele)
+
+CLV misst, ob sich der Markt nach unserem eingefrorenen Pick in unsere Richtung bewegt. Dauerhaft über 0 = echte Kante, unabhängig vom Glück einzelner Ergebnisse. Profis vertrauen dieser Zahl mehr als der Trefferquote.
 
 ---
 *Automatisch generiert von der Gridiron-Pipeline.*
