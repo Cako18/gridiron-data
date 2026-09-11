@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-09-11 · Saison 2026 · Modell trainiert auf 3999 Spielen (2026-09-11)
+Stand: 2026-09-11 · Saison 2026 · Modell trainiert auf 4000 Spielen (2026-09-11)
 
 ## Woche 1 – Picks
 
@@ -9,7 +9,7 @@ Stand: 2026-09-11 · Saison 2026 · Modell trainiert auf 3999 Spielen (2026-09-1
 - Bengals über Buccaneers – 64 % · KI ▲ 66 %
 - Lions über Saints – 63 % · KI ▼ 61 %
 - Bills über Texans – 54 % **[UPSET-ALARM]** · KI ▲ 54 %
-- Ravens über Colts – 57 % **[UPSET-ALARM]** · KI ▲ 58 %
+- Ravens über Colts – 57 % **[UPSET-ALARM]** · KI ▲ 59 %
 - Jaguars über Browns – 81 % **[BANK]** · KI ▲ 82 %
 - Steelers über Falcons – 57 % **[UPSET-ALARM]** · KI ▲ 59 %
 - Titans über Jets – 61 % · KI ▼ 60 %
@@ -32,14 +32,14 @@ Stand: 2026-09-11 · Saison 2026 · Modell trainiert auf 3999 Spielen (2026-09-1
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- Seahawks: Ø 12.4 Siege · Playoffs 95 % · Division 70 %
+- Seahawks: Ø 12.5 Siege · Playoffs 96 % · Division 70 %
 - Bills: Ø 11.4 Siege · Playoffs 91 % · Division 72 %
-- Jaguars: Ø 10.8 Siege · Playoffs 84 % · Division 55 %
-- Broncos: Ø 10.5 Siege · Playoffs 81 % · Division 65 %
-- 49ers: Ø 10.5 Siege · Playoffs 74 % · Division 21 %
-- Ravens: Ø 10.4 Siege · Playoffs 79 % · Division 56 %
-- Lions: Ø 10.1 Siege · Playoffs 65 % · Division 34 %
-- Eagles: Ø 10.1 Siege · Playoffs 73 % · Division 64 %
+- Jaguars: Ø 10.8 Siege · Playoffs 83 % · Division 55 %
+- 49ers: Ø 10.8 Siege · Playoffs 79 % · Division 25 %
+- Broncos: Ø 10.6 Siege · Playoffs 81 % · Division 65 %
+- Ravens: Ø 10.4 Siege · Playoffs 79 % · Division 55 %
+- Lions: Ø 10.1 Siege · Playoffs 66 % · Division 34 %
+- Eagles: Ø 10.1 Siege · Playoffs 74 % · Division 64 %
 
 ## Vegas-Duell
 

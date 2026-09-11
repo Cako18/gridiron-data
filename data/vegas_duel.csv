@@ -133,3 +133,4 @@ key,model_pick,vegas_pick,locked,p_model,p_mkt_lock,edge_src
 9-DET-MIA,DET,DET,2026-09-11,0.6065,0.7050,elo_diff
 9-CLE-NO,NO,NO,2026-09-11,0.7310,0.6311,qb_diff
 9-DEN-CAR,DEN,DEN,2026-09-11,0.6819,0.5930,elo_diff
+9-DAL-IND,IND,DAL,2026-09-11,0.5904,0.4675,def_diff
