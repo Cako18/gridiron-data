@@ -1,71 +1,68 @@
 # Gridiron Wochenreport
 
-Stand: 2026-09-13 · Saison 2026 · Modell trainiert auf 4000 Spielen (2026-09-13)
+Stand: 2026-09-13 · Saison 2026 · Modell trainiert auf 4008 Spielen (2026-09-13)
 
 ## Woche 1 – Picks
 
 **2026-09-13**
-- Bears über Panthers – 54 % **[UPSET-ALARM]** · KI ▼ 53 %
-- Bengals über Buccaneers – 66 % · KI ▲ 68 %
-- Lions über Saints – 66 % · KI ▲ 69 %
-- Bills über Texans – 52 % **[UPSET-ALARM]** · KI ▼ 51 %
-- Ravens über Colts – 55 % **[UPSET-ALARM]** · KI ▼ 55 %
-- Jaguars über Browns – 81 % **[BANK]** · KI ▲ 81 %
-- Steelers über Falcons – 73 % **[BANK]** · KI ▲ 77 %
-- Titans über Jets – 65 % · KI ▲ 66 %
 - Chargers über Cardinals – 72 % **[BANK]** · KI ▲ 73 %
-- Dolphins über Raiders – 58 % **[UPSET-ALARM]** · KI ▲ 61 %
-- Vikings über Packers – 59 % · KI ▲ 61 %
+- Dolphins über Raiders – 58 % · KI ▲ 61 %
+- Vikings über Packers – 58 % · KI ▲ 61 %
 - Eagles über Commanders – 68 % · KI ▲ 68 %
-- Giants über Cowboys – 56 % **[UPSET-ALARM]** · KI ▼ 55 %
+- Giants über Cowboys – 56 % **[UPSET-ALARM]** · KI ▼ 54 %
 **2026-09-14**
 - Broncos über Chiefs – 61 % · KI ▼ 58 %
 
-3 BANK-Picks (historisch ~75 % Trefferquote) · 5 Upset-Alarme (Münzwürfe)
+1 BANK-Picks (historisch ~75 % Trefferquote) · 1 Upset-Alarme (Münzwürfe)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
 - ▲ 49ers: +41 (jetzt 1596)
 - ▼ Rams: -41 (jetzt 1566)
-- ▼ Patriots: -8 (jetzt 1584)
-- ▲ Seahawks: +8 (jetzt 1684)
+- ▼ Titans: -30 (jetzt 1326)
+- ▲ Jets: +30 (jetzt 1390)
+- ▼ Colts: -27 (jetzt 1438)
+- ▲ Ravens: +27 (jetzt 1568)
 
 ## Wochenauswertung – Woche 1
 
-**1 von 2 Picks korrekt (50 %)**
+**8 von 10 Picks korrekt (80 %)**
 
 Danebengelegen:
 - SF 27:7 LA · getippt war LA (66 %, Mittelfeld)
+- NYJ 23:10 TEN · getippt war TEN (57 %, Münzwurf)
 
-Nach Sicherheitsstufe – Mittelfeld: 1/2
-Nach Haupttreiber – elo_diff: 1/2
+Nach Sicherheitsstufe – BANK: 1/1 · Mittelfeld: 3/4 · Münzwurf: 4/5
+Nach Haupttreiber – elo_diff: 6/7 · qb_diff: 2/3
 
 Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, die Struktur der Fehler über mehrere Wochen dagegen viel. Interessant wird es, wenn eine Stufe dauerhaft unter ihrem Backtest-Wert bleibt.
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- Seahawks: Ø 12.7 Siege · Playoffs 96 % · Division 69 %
-- Bills: Ø 11.4 Siege · Playoffs 90 % · Division 69 %
-- 49ers: Ø 11.1 Siege · Playoffs 83 % · Division 26 %
-- Jaguars: Ø 10.9 Siege · Playoffs 84 % · Division 54 %
-- Broncos: Ø 10.8 Siege · Playoffs 83 % · Division 69 %
-- Ravens: Ø 10.4 Siege · Playoffs 76 % · Division 51 %
-- Lions: Ø 10.4 Siege · Playoffs 72 % · Division 38 %
-- Texans: Ø 10.2 Siege · Playoffs 73 % · Division 37 %
+- Seahawks: Ø 12.6 Siege · Playoffs 95 % · Division 67 %
+- Bills: Ø 12.1 Siege · Playoffs 95 % · Division 80 %
+- Jaguars: Ø 11.9 Siege · Playoffs 94 % · Division 80 %
+- Ravens: Ø 11.4 Siege · Playoffs 89 % · Division 60 %
+- 49ers: Ø 11.1 Siege · Playoffs 82 % · Division 28 %
+- Lions: Ø 10.7 Siege · Playoffs 75 % · Division 38 %
+- Broncos: Ø 10.6 Siege · Playoffs 81 % · Division 67 %
+- Bengals: Ø 10.2 Siege · Playoffs 73 % · Division 31 %
 
 ## Vegas-Duell
 
-Modell 1/2 (50.0 %) vs. Vegas 1/2 (50.0 %)
+Modell 8/10 (80.0 %) vs. Vegas 8/10 (80.0 %)
 
 ### Kalibrierung (vorhergesagt vs. eingetreten)
 
-- 58-70 %: 2 Spiele · vorhergesagt Ø 65.2 % · eingetreten 50.0 %
+- 50-58 %: 5 Spiele · vorhergesagt Ø 55.5 % · eingetreten 80.0 %
+- 58-70 %: 4 Spiele · vorhergesagt Ø 64.3 % · eingetreten 75.0 %
+- 70+ %: 1 Spiele · vorhergesagt Ø 80.3 % · eingetreten 100.0 %
 
 Gut kalibriert = beide Werte nah beieinander. ⚠ = Drift über 8 Punkte bei genug Spielen – Modell prüfen.
 
 ### Closing Line Value
 
-Ø CLV: +0.95 Prozentpunkte · 50 % der Picks schlagen die Schlusslinie (2 Spiele)
+Ø CLV: +1.31 Prozentpunkte · 60 % der Picks schlagen die Schlusslinie (10 Spiele)
 
 CLV misst, ob sich der Markt nach unserem eingefrorenen Pick in unsere Richtung bewegt. Dauerhaft über 0 = echte Kante, unabhängig vom Glück einzelner Ergebnisse. Profis vertrauen dieser Zahl mehr als der Trefferquote.
 
