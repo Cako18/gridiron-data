@@ -5,7 +5,7 @@ on:
     # Sonntags 15:45 UTC = 11:45 ET - kurz nach den Inactives der Fruehspiele
     # (die 90 Minuten vor dem 13:00-ET-Kickoff veroeffentlicht werden) und damit
     # nach dem offiziellen Freitags-Gamestatus (Out/Doubtful/Questionable).
-    - cron: "45 15 * * 0"
+    - cron: "30 14 * * 0"
   workflow_dispatch: {}
 
 permissions:

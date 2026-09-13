@@ -523,7 +523,7 @@ def main():
         json.dump(out, f, separators=(",", ":"), allow_nan=False)
     print(f"OK: data/app_data.json geschrieben ({len(teams)} Teams, {len(sched)} Spiele Saison {current_season})")
 
-    write_history_and_report(line_moves, teams, sched, current_season, model, proj, duel)
+    write_history_and_report(line_moves, teams, sched, current_season, model, proj, duel, games_all)
 
 
 
@@ -1046,6 +1046,68 @@ def sanity_checks(out, model, sched, teams, proj):
     print("Plausibilitaetspruefung: alle Kontrollen bestanden")
     return True
 
+
+
+def weekly_review(games_all, teams, model, season, duel_rows_path="data/vegas_duel.csv"):
+    """Wertet den zuletzt gespielten Spieltag aus: welche Picks sassen, welche nicht,
+    und aus welcher Kategorie stammten die Fehler."""
+    import csv, os
+    if not os.path.exists(duel_rows_path):
+        return []
+    locks = {}
+    with open(duel_rows_path) as f:
+        for r in list(csv.reader(f))[1:]:
+            if len(r) >= 5:
+                locks[r[0]] = r
+    cur = games_all[(games_all["season"] == season) & games_all["home_score"].notna()]
+    if not len(cur):
+        return []
+    last_week = int(pd.to_numeric(cur["week"], errors="coerce").max())
+    wk = cur[pd.to_numeric(cur["week"], errors="coerce") == last_week]
+    hits, misses = [], []
+    tier_stat = defaultdict(lambda: [0, 0])
+    src_stat = defaultdict(lambda: [0, 0])
+    for _, g in wk.iterrows():
+        if g["home_score"] == g["away_score"]:
+            continue
+        key = f"{last_week}-{g['away_team']}-{g['home_team']}"
+        r = locks.get(key)
+        if not r:
+            continue
+        winner = g["home_team"] if g["home_score"] > g["away_score"] else g["away_team"]
+        ok = r[1] == winner
+        try:
+            p = float(r[4]) if len(r) > 4 and r[4] else None
+        except ValueError:
+            p = None
+        tier = "BANK" if (p or 0) >= 0.70 else ("Münzwurf" if (p or 1) < 0.58 else "Mittelfeld")
+        src = r[6] if len(r) > 6 and r[6] else "unbekannt"
+        tier_stat[tier][0] += int(ok); tier_stat[tier][1] += 1
+        src_stat[src][0] += int(ok); src_stat[src][1] += 1
+        entry = (f"{g['away_team']} {int(g['away_score'])}:{int(g['home_score'])} {g['home_team']}",
+                 r[1], f"{100*p:.0f} %" if p else "–", tier)
+        (hits if ok else misses).append(entry)
+
+    lines = []
+    if hits or misses:
+        n = len(hits) + len(misses)
+        lines += ["", f"## Wochenauswertung – Woche {last_week}", "",
+                  f"**{len(hits)} von {n} Picks korrekt ({100*len(hits)/n:.0f} %)**", ""]
+        if misses:
+            lines.append("Danebengelegen:")
+            for txt, pick, prob, tier in misses:
+                lines.append(f"- {txt} · getippt war {pick} ({prob}, {tier})")
+            lines.append("")
+        by_tier = " · ".join(f"{t}: {v[0]}/{v[1]}" for t, v in sorted(tier_stat.items()))
+        lines.append(f"Nach Sicherheitsstufe – {by_tier}")
+        by_src = " · ".join(f"{s}: {v[0]}/{v[1]}" for s, v in sorted(src_stat.items(), key=lambda x: -x[1][1]))
+        lines.append(f"Nach Haupttreiber – {by_src}")
+        lines.append("")
+        lines.append("Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, "
+                     "die Struktur der Fehler über mehrere Wochen dagegen viel. Interessant wird es, "
+                     "wenn eine Stufe dauerhaft unter ihrem Backtest-Wert bleibt.")
+    return lines
+
 def predict_game(g, teams, model, adj_home=0, adj_away=0):
     h, a = teams.get(g["h"]), teams.get(g["a"])
     if not h or not a:
@@ -1075,7 +1137,7 @@ def predict_game(g, teams, model, adj_home=0, adj_away=0):
     return 1 / (1 + math.exp(-z))
 
 
-def write_history_and_report(line_moves_report, teams, sched, season, model, proj=None, duel=None):
+def write_history_and_report(line_moves_report, teams, sched, season, model, proj=None, duel=None, games_all_ref=None):
     import csv, os
     today = datetime.date.today().isoformat()
 
@@ -1152,6 +1214,10 @@ def write_history_and_report(line_moves_report, teams, sched, season, model, pro
             lines.append(f"- {arrow} {NAMES.get(t, t)}: {d:+.0f} (jetzt {teams[t]['elo']:.0f})")
     else:
         lines.append("Keine nennenswerten Bewegungen (oder Historie startet gerade erst).")
+    try:
+        lines += weekly_review(games_all_ref, teams, model, season)
+    except Exception as e:
+        print(f"  (Wochenauswertung uebersprungen: {e})")
     if proj:
         lines += ["", "## Saisonprojektion (10.000 Simulationen)", ""]
         top = sorted(proj.items(), key=lambda x: -x[1]["w"])[:8]
