@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-09-12 · Saison 2026 · Modell trainiert auf 4000 Spielen (2026-09-12)
+Stand: 2026-09-13 · Saison 2026 · Modell trainiert auf 4000 Spielen (2026-09-13)
 
 ## Woche 1 – Picks
 
@@ -9,17 +9,17 @@ Stand: 2026-09-12 · Saison 2026 · Modell trainiert auf 4000 Spielen (2026-09-1
 - Bengals über Buccaneers – 66 % · KI ▲ 68 %
 - Lions über Saints – 66 % · KI ▼ 65 %
 - Bills über Texans – 52 % **[UPSET-ALARM]** · KI ▲ 53 %
-- Ravens über Colts – 55 % **[UPSET-ALARM]** · KI ▲ 56 %
+- Ravens über Colts – 55 % **[UPSET-ALARM]** · KI ▲ 57 %
 - Jaguars über Browns – 81 % **[BANK]** · KI ▲ 82 %
 - Steelers über Falcons – 73 % **[BANK]** · KI ▲ 74 %
 - Titans über Jets – 65 % · KI ▼ 64 %
 - Chargers über Cardinals – 72 % **[BANK]** · KI ▲ 73 %
 - Dolphins über Raiders – 58 % **[UPSET-ALARM]** · KI ▲ 58 %
 - Vikings über Packers – 59 % · KI ▲ 60 %
-- Eagles über Commanders – 69 % · KI ▼ 68 %
+- Eagles über Commanders – 68 % · KI ▼ 67 %
 - Giants über Cowboys – 56 % **[UPSET-ALARM]** · KI ▲ 57 %
 **2026-09-14**
-- Broncos über Chiefs – 58 % · KI ▼ 58 %
+- Broncos über Chiefs – 61 % · KI ▼ 60 %
 
 3 BANK-Picks (historisch ~75 % Trefferquote) · 5 Upset-Alarme (Münzwürfe)
 
@@ -32,12 +32,12 @@ Stand: 2026-09-12 · Saison 2026 · Modell trainiert auf 4000 Spielen (2026-09-1
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- Seahawks: Ø 12.6 Siege · Playoffs 96 % · Division 69 %
+- Seahawks: Ø 12.7 Siege · Playoffs 96 % · Division 69 %
 - Bills: Ø 11.4 Siege · Playoffs 90 % · Division 69 %
 - 49ers: Ø 11.1 Siege · Playoffs 83 % · Division 26 %
-- Jaguars: Ø 10.9 Siege · Playoffs 83 % · Division 54 %
-- Broncos: Ø 10.7 Siege · Playoffs 82 % · Division 66 %
-- Ravens: Ø 10.4 Siege · Playoffs 75 % · Division 51 %
+- Jaguars: Ø 10.9 Siege · Playoffs 84 % · Division 54 %
+- Broncos: Ø 10.8 Siege · Playoffs 83 % · Division 69 %
+- Ravens: Ø 10.4 Siege · Playoffs 76 % · Division 51 %
 - Lions: Ø 10.4 Siege · Playoffs 72 % · Division 38 %
 - Texans: Ø 10.2 Siege · Playoffs 73 % · Division 37 %
 
