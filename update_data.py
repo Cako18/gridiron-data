@@ -535,8 +535,12 @@ def main():
             for _r in list(_csv.reader(_f))[1:]:
                 if len(_r) >= 5 and _r[0]:
                     try:
-                        frozen_picks[_r[0]] = {"pick": _r[1], "p": round(float(_r[4]), 4),
-                                               "st": _r[7] if len(_r) > 7 else ""}
+                        frozen_picks[_r[0]] = {
+                            "pick": _r[1], "p": round(float(_r[4]), 4),
+                            "vp": _r[2],
+                            "pm": round(float(_r[5]), 4) if len(_r) > 5 and _r[5] else None,
+                            "src": _r[6] if len(_r) > 6 else "",
+                            "st": _r[7] if len(_r) > 7 else ""}
                     except (ValueError, IndexError):
                         continue
     except FileNotFoundError:
