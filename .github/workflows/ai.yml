@@ -2,10 +2,11 @@ name: KI-Kontextanalyse
 
 on:
   schedule:
-    # Sonntags 15:45 UTC = 11:45 ET - kurz nach den Inactives der Fruehspiele
-    # (die 90 Minuten vor dem 13:00-ET-Kickoff veroeffentlicht werden) und damit
-    # nach dem offiziellen Freitags-Gamestatus (Out/Doubtful/Questionable).
-    - cron: "30 14 * * 0"
+    # Sonntags vor dem ersten Anstossfenster (beide Zeitzonen-Varianten)
+    - cron: "0 16 * * 0"
+    - cron: "0 17 * * 0"
+    # Sonntags nochmal vor dem Abendspiel - bis dahin kann sich viel aendern
+    - cron: "20 23 * * 0"
   workflow_dispatch: {}
 
 permissions:
@@ -46,5 +47,4 @@ jobs:
             echo "Push-Versuch $i fehlgeschlagen, neuer Anlauf..."
             sleep $((i * 10))
           done
-          echo "Push endgueltig fehlgeschlagen"
           exit 1

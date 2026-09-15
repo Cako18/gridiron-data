@@ -2,17 +2,27 @@ name: Daten-Update
 
 on:
   schedule:
-    # Taeglicher Hauptlauf: 09:00 UTC (Training + Simulation + Report)
+    # Taeglicher Hauptlauf (Training, Simulation, Report)
     - cron: "0 9 * * *"
-    # Spieltags-Refreshs (~45-60 Min. vor den Kickoff-Fenstern, UTC):
-    # Sonntag vor dem 1pm-ET-Fenster (19:00 dt.) - Sommer- und Winterzeit abgedeckt
-    - cron: "30 15 * * 0"
-    - cron: "15 17 * * 0"
-    # Sonntag vor dem 4pm-ET-Fenster (22:00 dt.)
-    - cron: "15 20 * * 0"
-    # Abendspiele Do/So/Mo (Kickoff ~20:15 ET = Nacht dt.)
-    - cron: "30 23 * * 0,1,4"
-    - cron: "15 0 * * 1,2,5"
+
+    # --- Spieltagslaeufe: jeweils ca. 30-45 Min. vor den Anstosszeiten ---
+    # Die Zeiten decken Sommer- und Winterzeit ab (ET = UTC-4 bzw. UTC-5).
+    # Sonntag vor dem 13:00-ET-Fenster (19:00 dt. Zeit)
+    - cron: "20 16 * * 0"
+    - cron: "20 17 * * 0"
+    # Sonntag vor dem 16:05/16:25-ET-Fenster (22:00 dt. Zeit)
+    - cron: "30 19 * * 0"
+    - cron: "30 20 * * 0"
+    # Sonntagabendspiel 20:20 ET (02:20 dt. Zeit in der Nacht)
+    - cron: "40 23 * * 0"
+    - cron: "40 0 * * 1"
+    # Montagabendspiel
+    - cron: "40 23 * * 1"
+    - cron: "40 0 * * 2"
+    # Donnerstagabendspiel
+    - cron: "40 23 * * 4"
+    - cron: "40 0 * * 5"
+
   workflow_dispatch: {}
 
 permissions:

@@ -735,6 +735,32 @@ def build_lineups(season, team_qb=None):
     return out, rate
 
 
+LOCK_WINDOW_H = 2.5      # Picks werden erst kurz vor Anpfiff festgeschrieben
+
+
+def kickoff_utc(g):
+    """Anstosszeitpunkt in UTC. Die Spielzeiten stehen in US-Ostkuestenzeit."""
+    d = str(g["gameday"])[:10]
+    t = str(g["gametime"])[:5] if pd.notna(g.get("gametime")) else "13:00"
+    try:
+        y, m, day = (int(v) for v in d.split("-"))
+        hh, mm = (int(v) for v in t.split(":"))
+    except (ValueError, AttributeError):
+        return None
+    # Sommerzeit in den USA: 2. Sonntag im Maerz bis 1. Sonntag im November
+    dow = datetime.date(y, m, day).weekday()
+    sun_offset = (dow + 1) % 7
+    if 3 < m < 11:
+        off = 4
+    elif m < 3 or m == 12:
+        off = 5
+    elif m == 3:
+        off = 4 if day - sun_offset >= 8 else 5
+    else:
+        off = 5 if day - sun_offset >= 1 else 4
+    return datetime.datetime(y, m, day, hh, mm, tzinfo=datetime.timezone.utc) + datetime.timedelta(hours=off)
+
+
 def market_prob(g, pick):
     """Entvigte implizite Wahrscheinlichkeit des Picks aus den Moneylines."""
     dh, da = ml_to_dec(g["home_moneyline"]), ml_to_dec(g["away_moneyline"])
@@ -805,8 +831,22 @@ def vegas_duel(games_all, teams, model, season):
         key = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
         played = pd.notna(g["home_score"])
         existing = rows.get(key)
+        ko = kickoff_utc(g)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        # Ein Pick bleibt aktualisierbar, bis das Spiel in Reichweite ist. Erst dann
+        # wird er festgeschrieben. So testet die Bilanz immer das AKTUELLE Modell -
+        # und bleibt trotzdem vollstaendig vorab eingefroren.
+        frozen = bool(existing) and len(existing) > 7 and existing[7] == "fix"
+        in_window = ko is not None and (ko - now).total_seconds() <= LOCK_WINDOW_H * 3600
+        if existing is not None and not frozen and not played and not in_window:
+            existing = None                      # neu berechnen statt alten Wert behalten
         if existing is None:
             if played or pd.isna(g["spread_line"]) or g["spread_line"] == 0:
+                # Ohne Quoten kein Pick. Ein evtl. vorhandener alter Eintrag stammt
+                # aus einem frueheren Modellstand und wird verworfen, damit die
+                # Bilanz nie auf veralteten Vorhersagen beruht.
+                if key in rows and not played:
+                    del rows[key]
                 continue
             gg = {"h": g["home_team"], "a": g["away_team"],
                   "hr": int(g["home_rest"]) if pd.notna(g["home_rest"]) else 7,
@@ -820,12 +860,16 @@ def vegas_duel(games_all, teams, model, season):
             pm = market_prob(g, model_pick)
             gg2 = dict(gg); gg2["mh"] = ml_to_dec(g["home_moneyline"]); gg2["ma"] = ml_to_dec(g["away_moneyline"])
             ea = edge_attribution(gg2, teams, model, p)
-            rows[key] = [key, model_pick, vegas_pick, datetime.date.today().isoformat(),
+            rows[key] = [key, model_pick, vegas_pick,
+                         datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="minutes"),
                          f"{max(p, 1 - p):.4f}", f"{pm:.4f}" if pm is not None else "",
-                         ea["src"] if ea else ""]
+                         ea["src"] if ea else "",
+                         "fix" if in_window else "offen"]
             continue
         # Bestehender Lock: fehlende Spalten nachtragen, solange das Spiel noch nicht lief
-        r = list(existing) + [""] * max(0, 7 - len(existing))
+        r = list(existing) + [""] * max(0, 8 - len(existing))
+        if in_window and not played and r[7] != "fix":
+            r[7] = "fix"                          # ab jetzt unveraenderlich
         if not played:
             if not r[4]:
                 gg = {"h": g["home_team"], "a": g["away_team"],
@@ -839,11 +883,14 @@ def vegas_duel(games_all, teams, model, season):
                 pm = market_prob(g, r[1])
                 if pm is not None:
                     r[5] = f"{pm:.4f}"
-        rows[key] = r[:7]
+        rows[key] = r[:8]
 
+    fix_n = sum(1 for r in rows.values() if len(r) > 7 and r[7] == "fix")
+    offen_n = sum(1 for r in rows.values() if len(r) > 7 and r[7] == "offen")
+    print(f"  Picks: {fix_n} festgeschrieben, {offen_n} noch aktualisierbar")
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["key", "model_pick", "vegas_pick", "locked", "p_model", "p_mkt_lock", "edge_src"])
+        w.writerow(["key", "model_pick", "vegas_pick", "locked", "p_model", "p_mkt_lock", "edge_src", "status"])
         w.writerows(rows.values())
     # Abrechnung
     stats = {"m": 0, "v": 0, "n": 0, "dis_n": 0, "dis_m": 0}
