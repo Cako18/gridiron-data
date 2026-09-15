@@ -214,11 +214,36 @@ def main():
     stats = stats.merge(opp, on=["game_id", "opponent_team"], how="left")
     stats = stats.sort_values(["team", "season", "week"]).reset_index(drop=True)
     # f_* = Stand VOR dem jeweiligen Spiel (fuers Training), f_now_* = inkl. letztem Spiel (fuer Export)
+    # Gleitender Durchschnitt mit Sonderregel zum Saisonstart: Das erste Spiel einer
+    # neuen Saison ist die erste echte Information ueber den neuen Kader und wiegt
+    # daher 60 % statt der ueblichen 18 %. Backtest Wochen 1-4: 61,4 % -> 62,8 %.
+    def ewma_saisonstart(grp, col):
+        prev, cur_season, n_season = None, None, 0
+        vor, jetzt = [], []
+        for _, r in grp.iterrows():
+            if r["season"] != cur_season:
+                cur_season, n_season = r["season"], 0
+            vor.append(prev)
+            v = r[col]
+            if pd.isna(v):
+                jetzt.append(prev); n_season += 1; continue
+            if prev is None:
+                prev = v
+            else:
+                a = 0.60 if n_season == 0 else 2 / 11
+                prev = prev + a * (v - prev)
+            jetzt.append(prev)
+            n_season += 1
+        return vor, jetzt
+
+    stats = stats.sort_values(["team", "season", "week"]).reset_index(drop=True)
     for col, new in [("off_epa_pp", "f_off"), ("def_epa_pp", "f_def"), ("passing_cpoe", "f_cpoe")]:
-        stats[new] = stats.groupby("team")[col].transform(
-            lambda s: s.shift(1).ewm(span=10, min_periods=4).mean())
-        stats["now_" + new] = stats.groupby("team")[col].transform(
-            lambda s: s.ewm(span=10, min_periods=4).mean())
+        stats[new] = np.nan
+        stats["now_" + new] = np.nan
+        for team, grp in stats.groupby("team", sort=False):
+            vor, jetzt = ewma_saisonstart(grp, col)
+            stats.loc[grp.index, new] = pd.Series(vor, index=grp.index, dtype="float64")
+            stats.loc[grp.index, "now_" + new] = pd.Series(jetzt, index=grp.index, dtype="float64")
     latest = stats.groupby("team").tail(1).set_index("team")
 
     # ---------- QB-Ratings ----------
@@ -500,6 +525,23 @@ def main():
         line_moves = {}
     print(f"  {len(line_moves)} Spiele mit Bewegung >= 1.5 Punkte")
 
+    # Eingefrorene Picks fuer die App mitliefern - nur so kann sie vergangene
+    # Wochen ehrlich auswerten. Wuerde sie die Vorhersage nachrechnen, kaeme das
+    # heutige Modell zum Zug, das die Ergebnisse laengst kennt.
+    frozen_picks = {}
+    try:
+        import csv as _csv
+        with open("data/vegas_duel.csv") as _f:
+            for _r in list(_csv.reader(_f))[1:]:
+                if len(_r) >= 5 and _r[0]:
+                    try:
+                        frozen_picks[_r[0]] = {"pick": _r[1], "p": round(float(_r[4]), 4),
+                                               "st": _r[7] if len(_r) > 7 else ""}
+                    except (ValueError, IndexError):
+                        continue
+    except FileNotFoundError:
+        pass
+
     print("Simuliere Saison (10.000 Durchlaeufe)...")
     proj = simulate_season(sched, teams, model_now)
     duel = vegas_duel(games_all, teams, model_now, current_season)
@@ -512,7 +554,7 @@ def main():
     out = {"generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
            "season": current_season, "last_result": str(games["gameday"].max()),
            "teams": teams, "schedule": sched, "proj": proj, "duel": duel,
-           "kiadj": kiadj, "analysis": analysis, "archetypes": ARCHETYPES,
+           "kiadj": kiadj, "picks": frozen_picks, "analysis": analysis, "archetypes": ARCHETYPES,
            "lineups": lineups, "depth": depth, "line_moves": line_moves, "lineup_season": lineup_season,
            "arch_corr": ARCH_CORR, "edge_sources": EDGE_SOURCES}
     if not sanity_checks(out, model_now, sched, teams, proj):
