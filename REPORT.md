@@ -5,22 +5,22 @@ Stand: 2026-09-20 · Saison 2026 · Modell trainiert auf 4015 Spielen (2026-09-2
 ## Woche 2 – Picks
 
 **2026-09-20**
-- Panthers über Falcons – 51 % **[UPSET-ALARM]**
-- Ravens über Saints – 71 % **[BANK]**
-- Bears über Vikings – 71 % **[BANK]**
-- Texans über Bengals – 56 % **[UPSET-ALARM]**
-- Patriots über Steelers – 69 %
-- Packers über Jets – 61 %
-- Buccaneers über Browns – 69 %
-- Eagles über Titans – 75 % **[BANK]**
-- Jaguars über Broncos – 68 %
-- Chargers über Raiders – 66 %
-- Seahawks über Cardinals – 67 %
-- Cowboys über Commanders – 56 % **[UPSET-ALARM]**
-- 49ers über Dolphins – 79 % **[BANK]**
-- Chiefs über Colts – 66 %
+- Panthers über Falcons – 51 % **[UPSET-ALARM]** · KI ▲ 60 %
+- Ravens über Saints – 71 % **[BANK]** · KI ▼ 70 %
+- Bears über Vikings – 71 % **[BANK]** · KI ▲ 73 %
+- Texans über Bengals – 56 % **[UPSET-ALARM]** · KI ▼ 55 %
+- Patriots über Steelers – 69 % · KI • 69 %
+- Packers über Jets – 61 % · KI ▼ 58 %
+- Buccaneers über Browns – 69 % · KI ▲ 70 %
+- Eagles über Titans – 75 % **[BANK]** · KI ▼ 74 %
+- Jaguars über Broncos – 68 % · KI ▲ 69 %
+- Chargers über Raiders – 66 % · KI ▲ 68 %
+- Seahawks über Cardinals – 67 % · KI ▼ 66 %
+- Cowboys über Commanders – 56 % **[UPSET-ALARM]** · KI ▲ 57 %
+- 49ers über Dolphins – 79 % **[BANK]** · KI ▲ 82 %
+- Chiefs über Colts – 66 % · KI ▼ 65 %
 **2026-09-21**
-- Rams über Giants – 57 % **[UPSET-ALARM]**
+- Rams über Giants – 57 % **[UPSET-ALARM]** · KI ▼ 55 %
 
 4 BANK-Picks (historisch ~75 % Trefferquote) · 4 Upset-Alarme (Münzwürfe)
 
