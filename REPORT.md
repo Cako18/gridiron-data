@@ -5,7 +5,6 @@ Stand: 2026-09-20 · Saison 2026 · Modell trainiert auf 4022 Spielen (2026-09-2
 ## Woche 2 – Picks
 
 **2026-09-20**
-- Buccaneers über Browns – 69 % · KI ▲ 70 %
 - Jaguars über Broncos – 67 % · KI ▲ 69 %
 - Chargers über Raiders – 66 % · KI ▼ 64 %
 - Seahawks über Cardinals – 67 % · KI ▼ 62 %
@@ -28,45 +27,46 @@ Stand: 2026-09-20 · Saison 2026 · Modell trainiert auf 4022 Spielen (2026-09-2
 
 ## Wochenauswertung – Woche 2
 
-**5 von 8 Picks korrekt (62 %)**
+**5 von 9 Picks korrekt (56 %)**
 
 Danebengelegen:
 - NO 24:17 BAL · getippt war BAL (71 %, BANK)
 - MIN 9:3 CHI · getippt war CHI (71 %, BANK)
 - CIN 20:6 HOU · getippt war HOU (56 %, Münzwurf)
+- CLE 23:19 TB · getippt war TB (69 %, Mittelfeld)
 
-Nach Sicherheitsstufe – BANK: 2/4 · Mittelfeld: 2/2 · Münzwurf: 1/2
-Nach Haupttreiber – elo_diff: 4/6 · inj_diff: 1/2
+Nach Sicherheitsstufe – BANK: 2/4 · Mittelfeld: 2/3 · Münzwurf: 1/2
+Nach Haupttreiber – elo_diff: 4/7 · inj_diff: 1/2
 
 Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, die Struktur der Fehler über mehrere Wochen dagegen viel. Interessant wird es, wenn eine Stufe dauerhaft unter ihrem Backtest-Wert bleibt.
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- Bills: Ø 13.1 Siege · Playoffs 99 % · Division 86 %
+- Bills: Ø 13.0 Siege · Playoffs 99 % · Division 86 %
 - Jaguars: Ø 12.6 Siege · Playoffs 98 % · Division 95 %
-- 49ers: Ø 11.5 Siege · Playoffs 86 % · Division 49 %
-- Seahawks: Ø 11.3 Siege · Playoffs 83 % · Division 43 %
-- Bengals: Ø 11.2 Siege · Playoffs 91 % · Division 65 %
-- Eagles: Ø 10.8 Siege · Playoffs 80 % · Division 66 %
-- Patriots: Ø 10.1 Siege · Playoffs 80 % · Division 14 %
-- Lions: Ø 10.0 Siege · Playoffs 61 % · Division 32 %
+- 49ers: Ø 11.5 Siege · Playoffs 86 % · Division 48 %
+- Seahawks: Ø 11.3 Siege · Playoffs 84 % · Division 44 %
+- Bengals: Ø 11.1 Siege · Playoffs 90 % · Division 63 %
+- Eagles: Ø 10.8 Siege · Playoffs 79 % · Division 66 %
+- Patriots: Ø 10.1 Siege · Playoffs 79 % · Division 13 %
+- Lions: Ø 10.0 Siege · Playoffs 62 % · Division 32 %
 
 ## Vegas-Duell
 
-Modell 17/24 (70.8 %) vs. Vegas 17/24 (70.8 %)
+Modell 17/25 (68.0 %) vs. Vegas 17/25 (68.0 %)
 Bei Uneinigkeit (2 Spiele): Modell gewinnt 1 (50 %)
 
 ### Kalibrierung (vorhergesagt vs. eingetreten)
 
 - 50-58 %: 11 Spiele · vorhergesagt Ø 54.6 % · eingetreten 72.7 %
-- 58-70 %: 6 Spiele · vorhergesagt Ø 64.6 % · eingetreten 83.3 %
+- 58-70 %: 7 Spiele · vorhergesagt Ø 65.3 % · eingetreten 71.4 %
 - 70+ %: 7 Spiele · vorhergesagt Ø 73.0 % · eingetreten 57.1 %
 
 Gut kalibriert = beide Werte nah beieinander. ⚠ = Drift über 8 Punkte bei genug Spielen – Modell prüfen.
 
 ### Closing Line Value
 
-Ø CLV: +0.43 Prozentpunkte · 46 % der Picks schlagen die Schlusslinie (24 Spiele)
+Ø CLV: +0.41 Prozentpunkte · 44 % der Picks schlagen die Schlusslinie (25 Spiele)
 
 CLV misst, ob sich der Markt nach unserem eingefrorenen Pick in unsere Richtung bewegt. Dauerhaft über 0 = echte Kante, unabhängig vom Glück einzelner Ergebnisse. Profis vertrauen dieser Zahl mehr als der Trefferquote.
 
