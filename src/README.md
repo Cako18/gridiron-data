@@ -9,10 +9,10 @@ fertig.
 | Tab | Zustand |
 |---|---|
 | Spielplan | gebaut, gegen echte Daten geprueft |
+| Matchup | gebaut, gegen echte Daten geprueft |
 | Vegas-Duell | gebaut, gegen echte Daten geprueft |
 | Elo-Ranking | gebaut, gegen echte Daten geprueft |
 | Live | offen |
-| Matchup | offen |
 | Tippschein | offen |
 
 **Live laeuft weiterhin `app26.js`.** `index.html` zeigt weiter dorthin
@@ -78,7 +78,12 @@ die logistische Regression, nachgerechnet in `predictHome()`.
    an Spielen von gestern - und sieht viel zu gut aus.
 2. **Die Wochenwahl ist datengetrieben:** immer die niedrigste Woche
    mit offenen Spielen. Nichts hart kodieren.
-3. **Rauschen wird als Rauschen ausgewiesen.** Die Kalibrierungstabelle
+3. **Werte werden gegen die Liga normiert, nicht gegeneinander.** Im
+   Matchup-Vergleich sahen 1410 und 1513 Elo gegeneinander normiert fast
+   gleich aus, weil die Absolutwerte nah beieinander liegen. Gegen die
+   Liga gemessen sind das Rang 30 und Rang 16 - und genau das ist die
+   Information. Der Rang steht deshalb an jedem Wert.
+4. **Rauschen wird als Rauschen ausgewiesen.** Die Kalibrierungstabelle
    rechnet je Band einen zweiseitigen Binomialtest und schreibt das
    Ergebnis hin. Bei zehn Spielen sieht "gesagt 55 %, real 75 %"
    dramatisch aus und ist p = 0,25 - also nichts. Eine Seite, die solche

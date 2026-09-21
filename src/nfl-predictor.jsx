@@ -2,11 +2,11 @@
    Cako's NFL World - Frontend
    =====================================================================
 
-   Neuaufbau der verlorenen Quelle. Stand: drei von sechs Tabs.
+   Neuaufbau der verlorenen Quelle. Stand: vier von sechs Tabs.
 
    Fertig:  Datenschicht, Modellrechnung, Rahmen,
-            Spielplan, Vegas-Duell, Elo-Ranking
-   Offen:   Live, Matchup, Tippschein
+            Spielplan, Matchup, Vegas-Duell, Elo-Ranking
+   Offen:   Live, Tippschein
 
    Die laufende Seite (app26.js) bleibt unberuehrt, bis ein Tab hier
    nachweislich dasselbe zeigt. Vergleichsmassstab ist immer die
@@ -384,6 +384,316 @@ function SpielplanTab({ data, model }) {
   );
 }
 
+/* ------------------------------------------------------------- Matchup */
+
+const MERKMAL_LABEL = {
+  elo_diff: "Elo / Form", qb_diff: "QB-Rating", off_diff: "Offense-EPA",
+  def_diff: "Defense-EPA", cpoe_diff: "CPOE", rest_diff: "Ruhetage",
+  inj_diff: "Verletzungen", qb_new_diff: "QB ohne Historie", bye_diff: "Bye-Woche",
+  tz_shift_away: "Zeitzonenwechsel", west_early_away: "Westkueste, frueher Anstoss",
+};
+
+/**
+ * Gegenueberstellung eines Teamwerts.
+ *
+ * Die Balken werden gegen die gesamte Liga normiert, nicht gegeneinander.
+ * Gegeneinander normiert sahen 1410 und 1513 Elo fast gleich aus - beide
+ * Balken bei rund der Haelfte, weil die Absolutwerte nah beieinander liegen.
+ * Gegen die Liga gemessen ist der eine das untere Drittel und der andere die
+ * Spitzengruppe, und genau das soll man sehen. Der Rang steht dabei.
+ */
+function VergleichsZeile({ label, aWert, hWert, aCode, hCode, fmt, liga, hoeherIstBesser = true }) {
+  const { min, max, werte } = liga;
+  const spanne = max - min || 1;
+  const anteil = (v) => Math.min(1, Math.max(0.03, hoeherIstBesser ? (v - min) / spanne : (max - v) / spanne));
+  const rang = (v) => {
+    const s = [...werte].sort((x, y) => (hoeherIstBesser ? y - x : x - y));
+    return s.findIndex((x) => x === v) + 1;
+  };
+  const aBesser = hoeherIstBesser ? aWert > hWert : aWert < hWert;
+
+  const Seite = ({ v, code, rechts }) => (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, alignItems: rechts ? "flex-end" : "flex-start" }}>
+      <span style={{ fontFamily: FONT.mono, fontSize: 11, color: (rechts ? !aBesser : aBesser) ? C.text : C.muted3 }}>
+        {fmt(v)}
+        <span style={{ color: C.muted3, fontSize: 9, marginLeft: 4 }}>{rang(v)}.</span>
+      </span>
+      <div style={{
+        width: "100%", height: 4, background: C.line, borderRadius: 2,
+        display: "flex", justifyContent: rechts ? "flex-start" : "flex-end",
+      }}>
+        <div style={{
+          width: `${anteil(v) * 100}%`, height: "100%", borderRadius: 2,
+          background: color(code), opacity: (rechts ? !aBesser : aBesser) ? 1 : 0.4,
+        }} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 11 }}>
+      <Seite v={aWert} code={aCode} rechts={false} />
+      <span style={{
+        fontFamily: FONT.mono, fontSize: 9, color: C.muted, minWidth: 74,
+        textAlign: "center", paddingTop: 2,
+      }}>
+        {label}
+      </span>
+      <Seite v={hWert} code={hCode} rechts />
+    </div>
+  );
+}
+
+/** Depth Chart eines Teams, nach Positionsgruppen. */
+function DepthChart({ code, depth }) {
+  if (!depth || !depth.groups) {
+    return <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3 }}>keine Aufstellung</p>;
+  }
+  return (
+    <div>
+      {Object.entries(depth.groups).map(([gruppe, positionen]) => (
+        <div key={gruppe} style={{ marginBottom: 10 }}>
+          <div style={{
+            fontFamily: FONT.head, fontSize: 12, letterSpacing: "0.08em",
+            textTransform: "uppercase", color: C.muted3, marginBottom: 4,
+          }}>
+            {gruppe}
+          </div>
+          {positionen.map((p, i) => (
+            <div key={`${p.pos}-${i}`} style={{ marginBottom: 5 }}>
+              <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3 }}>{p.pos}</span>
+              {p.players.slice(0, 3).map((sp) => (
+                <div key={sp.n} style={{
+                  fontSize: 11, paddingLeft: 8,
+                  color: sp.d === 1 ? C.text : sp.d === 2 ? C.muted : C.muted3,
+                }}>
+                  {sp.n}
+                  {sp.i && (
+                    <span style={{ color: sp.i === "O" ? C.red : C.gold, marginLeft: 5, fontFamily: FONT.mono, fontSize: 9 }}>
+                      {sp.i}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
+      <div style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted3, marginTop: 6 }}>
+        Stand {depth.stamp}
+      </div>
+    </div>
+  );
+}
+
+function MatchupTab({ data, model }) {
+  const wochen = useMemo(
+    () => [...new Set(data.schedule.map((g) => g.w))].sort((a, b) => a - b),
+    [data]
+  );
+  const [woche, setWoche] = useState(() => currentWeek(data.schedule));
+  const spiele = useMemo(() => data.schedule.filter((g) => g.w === woche), [data, woche]);
+  const [idx, setIdx] = useState(0);
+  const g = spiele[Math.min(idx, spiele.length - 1)];
+
+  // Ligaspanne je Merkmal - Bezugsgroesse fuer Balken und Rang im Vergleich
+  const liga = useMemo(() => {
+    const felder = ["elo", "off_epa", "def_epa", "cpoe", "qb"];
+    const out = {};
+    for (const f of felder) {
+      const werte = Object.values(data.teams).map((t) => t[f]).filter((v) => typeof v === "number");
+      out[f] = { min: Math.min(...werte), max: Math.max(...werte), werte };
+    }
+    return out;
+  }, [data]);
+
+  useEffect(() => setIdx(0), [woche]);
+
+  if (!g) return <p style={{ padding: 24, color: C.muted3 }}>keine Spiele</p>;
+
+  const key = `${g.w}-${g.a}-${g.h}`;
+  const an = data.analysis[key];
+  const pick = data.picks[key];
+  const pModelHome = predictHome(model, features(g, data.teams, data.kiadj));
+  const pMarktHome = marketHome(g);
+  const ta = data.teams[g.a], th = data.teams[g.h];
+  const zeigtHeim = pick ? pick.pick === g.h : (pModelHome ?? 0.5) >= 0.5;
+  const pTipp = pick ? pick.p : pModelHome === null ? null : Math.max(pModelHome, 1 - pModelHome);
+
+  const teile = (an && an.edge && an.edge.parts) || [];
+  const maxTeil = Math.max(...teile.map(([, w]) => Math.abs(w)), 0.001);
+  const vertrauen = an && an.edge ? an.edge.trust : null;
+
+  return (
+    <div style={{ padding: "14px 16px 40px" }}>
+      <WochenWahl wochen={wochen} woche={woche} setWoche={setWoche} />
+
+      <select
+        value={idx}
+        onChange={(e) => setIdx(Number(e.target.value))}
+        style={{
+          width: "100%", padding: "9px 11px", marginBottom: 14, borderRadius: 7,
+          background: C.surface, color: C.text, border: `1px solid ${C.line}`,
+          fontFamily: FONT.body, fontSize: 13,
+        }}
+      >
+        {spiele.map((s, i) => (
+          <option key={`${s.a}-${s.h}`} value={i}>
+            {name(s.a)} bei {name(s.h)}
+          </option>
+        ))}
+      </select>
+
+      {/* Prognose */}
+      <div style={{
+        padding: "14px 15px", background: C.surface,
+        border: `1px solid ${C.line}`, borderRadius: 9,
+      }}>
+        <div style={{ fontSize: 15, color: C.text, marginBottom: 8 }}>
+          Modell sieht{" "}
+          <strong style={{ color: color(zeigtHeim ? g.h : g.a) === "#0A0D16" ? C.gold : C.text }}>
+            {name(zeigtHeim ? g.h : g.a)}
+          </strong>{" "}
+          vorn &mdash;{" "}
+          <span style={{ fontFamily: FONT.mono, color: C.gold }}>{pTipp === null ? "?" : pct(pTipp, 1)}</span>
+        </div>
+        <div style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted, lineHeight: 1.8 }}>
+          Markt: {pMarktHome === null ? "keine Quote" :
+            `${pMarktHome >= 0.5 ? g.h : g.a} ${pct(Math.max(pMarktHome, 1 - pMarktHome), 1)}`}
+          {an && an.edge ? <><br />Abstand zum Markt: {an.edge.edge > 0 ? "+" : ""}{an.edge.edge} Punkte</> : null}
+          {an ? <><br />Streuung der Prognose: &plusmn;{an.sd} &middot; Vertrauen {an.conf}</> : null}
+          {pick && pick.st === "fix" ? <><br />Pick eingefroren &ndash; wird nicht mehr neu gerechnet</> : null}
+        </div>
+      </div>
+
+      {/* Woher die Abweichung kommt */}
+      {teile.length > 0 && (
+        <Abschnitt
+          titel="Woher die Abweichung kommt"
+          hinweis="Anteil jedes Merkmals am Unterschied zwischen Modell und Markt. Nach rechts spricht fuer das Heimteam."
+        >
+          {teile.map(([f, w]) => (
+            <div key={f} style={{ marginBottom: 8 }}>
+              <div style={{
+                display: "flex", justifyContent: "space-between",
+                fontFamily: FONT.mono, fontSize: 11, marginBottom: 3,
+              }}>
+                <span style={{ color: C.text2 }}>{MERKMAL_LABEL[f] || f}</span>
+                <span style={{ color: w >= 0 ? C.green : C.red }}>{w >= 0 ? "+" : ""}{w.toFixed(3)}</span>
+              </div>
+              <div style={{ display: "flex", height: 4, background: C.line, borderRadius: 2 }}>
+                <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
+                  {w < 0 && <div style={{ width: `${(Math.abs(w) / maxTeil) * 100}%`, background: C.red, borderRadius: 2 }} />}
+                </div>
+                <div style={{ flex: 1 }}>
+                  {w >= 0 && <div style={{ width: `${(w / maxTeil) * 100}%`, background: C.green, borderRadius: 2 }} />}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {vertrauen === "niedrig" && (
+            <div style={{
+              marginTop: 10, padding: "9px 12px", borderRadius: 7,
+              background: "rgba(224,104,92,0.09)", border: `1px solid ${C.red}55`,
+              fontFamily: FONT.mono, fontSize: 10, color: C.red, lineHeight: 1.7,
+            }}>
+              Vorsicht: Haupttreiber ist &bdquo;{an.edge.src_label}&ldquo;, und dieses Merkmal
+              trifft historisch kaum besser als ein Muenzwurf. Die Abweichung vom Markt
+              ruht hier auf duennem Eis.
+            </div>
+          )}
+        </Abschnitt>
+      )}
+
+      {/* Teamvergleich */}
+      {ta && th && (
+        <Abschnitt titel="Direkter Vergleich">
+          <div style={{
+            display: "flex", justifyContent: "space-between", marginBottom: 10,
+            fontSize: 12, color: C.text2,
+          }}>
+            <span>{name(g.a)}</span>
+            <span style={{ color: C.muted3, fontFamily: FONT.mono, fontSize: 10 }}>auswaerts / heim</span>
+            <span>{name(g.h)}</span>
+          </div>
+          {[
+            ["Elo", "elo", (v) => v.toFixed(0), true],
+            ["Offense-EPA", "off_epa", (v) => v.toFixed(3), true],
+            ["Defense-EPA", "def_epa", (v) => v.toFixed(3), false],
+            ["CPOE", "cpoe", (v) => v.toFixed(2), true],
+            ["QB-Rating", "qb", (v) => v.toFixed(3), true],
+          ].map(([label, feld, fmt, hoch]) => (
+            <VergleichsZeile
+              key={feld}
+              label={label}
+              aWert={ta[feld]} hWert={th[feld]}
+              aCode={g.a} hCode={g.h}
+              fmt={fmt} hoeherIstBesser={hoch}
+              liga={liga[feld]}
+            />
+          ))}
+          <div style={{
+            display: "flex", justifyContent: "space-between", marginTop: 10,
+            fontFamily: FONT.mono, fontSize: 11, color: C.muted,
+          }}>
+            <span>{ta.qb_name || "QB unbekannt"}</span>
+            <span>{th.qb_name || "QB unbekannt"}</span>
+          </div>
+        </Abschnitt>
+      )}
+
+      {/* Archetypen */}
+      {an && an.tags && an.tags.length > 0 && (
+        <Abschnitt
+          titel="Spieltyp"
+          hinweis="Wie gut das Modell bei Spielen dieser Art historisch lag."
+        >
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {an.tags.map((t) => {
+              const a = data.archetypes[t];
+              return (
+                <span key={t} style={{
+                  padding: "5px 10px", borderRadius: 999, background: C.surface,
+                  border: `1px solid ${C.line}`, fontFamily: FONT.mono, fontSize: 11, color: C.text2,
+                }}>
+                  {t}
+                  {a && <span style={{ color: a.hit >= 65 ? C.green : C.muted3, marginLeft: 6 }}>
+                    {a.hit.toFixed(1)} % &middot; n={a.n}
+                  </span>}
+                </span>
+              );
+            })}
+          </div>
+        </Abschnitt>
+      )}
+
+      {/* Depth Charts nebeneinander */}
+      <Abschnitt
+        titel="Aufstellungen"
+        hinweis="Beide Depth Charts nebeneinander. Erste Reihe hell, dahinter abgestuft. O = out, Q = fraglich."
+      >
+        <div style={{ display: "flex", gap: 10 }}>
+          {[g.a, g.h].map((code) => (
+            <div key={code} style={{
+              flex: 1, minWidth: 0, padding: "11px 12px", background: C.surface,
+              border: `1px solid ${C.line}`, borderRadius: 8,
+            }}>
+              <div style={{
+                fontSize: 12, color: C.text, borderBottom: `2px solid ${color(code)}`,
+                paddingBottom: 5, marginBottom: 8,
+              }}>
+                {code}
+              </div>
+              <DepthChart code={code} depth={data.depth[code]} />
+            </div>
+          ))}
+        </div>
+      </Abschnitt>
+    </div>
+  );
+}
+
 /* -------------------------------------------------------- Elo-Ranking */
 
 /** Nach welcher Spalte sortiert wird. `hoeherIstBesser` steuert die Richtung. */
@@ -648,7 +958,7 @@ function VegasDuellTab({ data }) {
 function App() {
   const { status, data, model, err } = useGridironData();
   const [tab, setTab] = useState("sched");
-  const FERTIG = ["sched", "duel", "rank"];
+  const FERTIG = ["sched", "match", "duel", "rank"];
 
   if (status === "laedt") {
     return (
@@ -674,6 +984,7 @@ function App() {
     <Rahmen generated={data.generated}>
       <TabLeiste aktiv={tab} setAktiv={setTab} fertig={FERTIG} />
       {tab === "sched" && <SpielplanTab data={data} model={model} />}
+      {tab === "match" && <MatchupTab data={data} model={model} />}
       {tab === "duel" && <VegasDuellTab data={data} />}
       {tab === "rank" && <EloRankingTab data={data} />}
     </Rahmen>
