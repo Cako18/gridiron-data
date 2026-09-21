@@ -6,19 +6,29 @@ Die urspruengliche Quelle ging verloren; im Repo lag nur das fertige
 Bundle. `nfl-predictor.jsx` ist der Neuaufbau, und er ist noch nicht
 fertig.
 
-| Tab | Zustand |
-|---|---|
-| Spielplan | gebaut, gegen echte Daten geprueft |
-| Matchup | gebaut, gegen echte Daten geprueft |
-| Vegas-Duell | gebaut, gegen echte Daten geprueft |
-| Elo-Ranking | gebaut, gegen echte Daten geprueft |
-| Live | offen |
-| Tippschein | offen |
+Alle sechs Tabs sind nachgebaut und gegen echte Daten in Chromium
+gerendert, ohne Konsolenfehler.
 
-**Live laeuft weiterhin `app26.js`.** `index.html` zeigt weiter dorthin
-und wird erst umgestellt, wenn alle Tabs nachgebaut und geprueft sind.
-Nicht vorher umstellen - ein halbfertiges Bundle scharf zu schalten
-heisst, Funktionen zu verlieren, die heute laufen.
+| Tab | Inhalt |
+|---|---|
+| Spielplan | Wochenwahl, Wochenvorschau, Bilanz gegen Vegas, Spiele nach Tagen |
+| Live | ESPN-Feed alle 45 s, WP-Kurve, Kipppunkt, Vorbereitungsspiele ohne Prognose |
+| Matchup | Prognose, Edge-Attribution, KI-Kontext, Marktbewegung, Ligavergleich, Spieltyp, beide Depth Charts |
+| Tippschein | EV je Tipp, Risikomischung, Poisson-Binomial-Verteilung, Gesamtquote |
+| Vegas-Duell | Bilanz, CLV, Kalibrierung mit Signifikanztest, Merkmalsguete, bester Call |
+| Elo-Ranking | Sortierung nach Elo/Offense/Defense/QB, Elo-Verlauf, Projektion |
+
+### Bewusst nicht uebernommen
+
+| Was | Warum |
+|---|---|
+| Einzelanalyse per Claude-API | Der Aufruf im alten Bundle sendet keinen `x-api-key`. Auf GitHub Pages schlaegt er immer fehl - toter Code. (Immerhin: es liegt damit auch kein Schluessel im oeffentlichen Bundle.) |
+| Aufstellungs-Duell | Die Pipeline fuellt `lineups` nur fuer zwei Teams. Erst muss `update_data.py` alle 32 liefern. |
+| Archetyp-Korrelationen | `Saisonstart` korreliert mit 0,72 zu `Heimfavorit` und 0,70 zu `Enges Spiel` - weil die Marke frueh in der Saison auf jedes Spiel zutrifft. Ein Artefakt, keine Erkenntnis. |
+
+**Live laeuft weiterhin `app26.js`.** Umgestellt wird erst nach einem
+Seite-an-Seite-Vergleich am echten Spieltag: der Live-Tab ist bisher nur
+gegen einen nachgebauten ESPN-Feed geprueft, nicht gegen den echten.
 
 ## Bauen
 

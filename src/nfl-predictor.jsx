@@ -2,11 +2,16 @@
    Cako's NFL World - Frontend
    =====================================================================
 
-   Neuaufbau der verlorenen Quelle. Stand: vier von sechs Tabs.
+   Neuaufbau der verlorenen Quelle. Alle sechs Tabs stehen:
+   Spielplan, Live, Matchup, Tippschein, Vegas-Duell, Elo-Ranking.
 
-   Fertig:  Datenschicht, Modellrechnung, Rahmen,
-            Spielplan, Matchup, Vegas-Duell, Elo-Ranking
-   Offen:   Live, Tippschein
+   Nicht uebernommen, mit Absicht:
+     * Einzelanalyse per Claude-API - der Aufruf im alten Bundle sendet
+       keinen Schluessel und schlaegt auf GitHub Pages immer fehl
+     * Aufstellungs-Duell - die Pipeline fuellt "lineups" nur fuer zwei
+       Teams; ein Tab dafuer waere Arbeit an einer Leerstelle
+     * Archetyp-Korrelationen - "Saisonstart" korreliert mit allem, weil
+       es frueh in der Saison auf jedes Spiel zutrifft. Artefakt.
 
    Die laufende Seite (app26.js) bleibt unberuehrt, bis ein Tab hier
    nachweislich dasselbe zeigt. Vergleichsmassstab ist immer die
@@ -140,23 +145,54 @@ function dayLabel(iso) {
 
 /* ------------------------------------------------------------ Datenhaken */
 
+/** elo_history.csv -> { TEAM: [{date, elo}, ...] }, nach Datum sortiert. */
+function parseEloHistorie(text) {
+  const zeilen = text.trim().split("\n");
+  const kopf = zeilen[0].split(",").map((s) => s.trim());
+  const iD = kopf.indexOf("date"), iT = kopf.indexOf("team"), iE = kopf.indexOf("elo");
+  if (iD < 0 || iT < 0 || iE < 0) return {};
+  const out = {};
+  for (let i = 1; i < zeilen.length; i++) {
+    const f = zeilen[i].split(",");
+    if (f.length < 3) continue;
+    const team = f[iT].trim(), elo = Number(f[iE]);
+    if (!team || !isFinite(elo)) continue;
+    (out[team] = out[team] || []).push({ date: f[iD].trim(), elo });
+  }
+  for (const t of Object.keys(out)) out[t].sort((a, b) => a.date.localeCompare(b.date));
+  return out;
+}
+
 function useGridironData() {
-  const [state, setState] = useState({ status: "laedt", data: null, model: null, err: null });
+  const [state, setState] = useState({
+    status: "laedt", data: null, model: null, ki: null, eloHist: null, err: null,
+  });
 
   useEffect(() => {
     let abgebrochen = false;
     (async () => {
       try {
-        const [rd, rm] = await Promise.all([
+        // app_data.json ist Pflicht, der Rest ist Beiwerk: faellt eine Nebendatei
+        // aus, soll die Seite trotzdem stehen statt in den Fehlerzustand zu kippen.
+        const [rd, rm, rk, re] = await Promise.all([
           fetch(`${BASE}/app_data.json`, { cache: "no-store" }),
-          fetch(`${BASE}/model.json`, { cache: "no-store" }),
+          fetch(`${BASE}/model.json`, { cache: "no-store" }).catch(() => null),
+          fetch(`${BASE}/ai_context.json`, { cache: "no-store" }).catch(() => null),
+          fetch(`${BASE}/elo_history.csv`, { cache: "no-store" }).catch(() => null),
         ]);
-        if (!rd.ok) throw new Error(`app_data.json: HTTP ${rd.status}`);
+        if (!rd || !rd.ok) throw new Error(`app_data.json: HTTP ${rd ? rd.status : "offline"}`);
         const data = await rd.json();
-        const model = rm.ok ? await rm.json() : null;
-        if (!abgebrochen) setState({ status: "bereit", data, model, err: null });
+        const model = rm && rm.ok ? await rm.json().catch(() => null) : null;
+        const ki = rk && rk.ok ? await rk.json().catch(() => null) : null;
+        let eloHist = null;
+        if (re && re.ok) {
+          try { eloHist = parseEloHistorie(await re.text()); } catch { eloHist = null; }
+        }
+        if (!abgebrochen) setState({ status: "bereit", data, model, ki, eloHist, err: null });
       } catch (e) {
-        if (!abgebrochen) setState({ status: "fehler", data: null, model: null, err: String(e) });
+        if (!abgebrochen) {
+          setState({ status: "fehler", data: null, model: null, ki: null, eloHist: null, err: String(e) });
+        }
       }
     })();
     return () => { abgebrochen = true; };
@@ -167,9 +203,26 @@ function useGridironData() {
 
 /* ----------------------------------------------------------- Bausteine */
 
-function Kopf({ generated }) {
+/** Tage zwischen einem ISO-Datum und heute. */
+function tageHer(iso) {
+  if (!iso) return null;
+  const d = new Date(iso + "T12:00:00Z");
+  if (isNaN(d)) return null;
+  return Math.floor((Date.now() - d.getTime()) / 864e5);
+}
+
+function Kopf({ generated, ki, woche }) {
+  // Der KI-Kontext war schon einmal sieben Tage alt, ohne dass es jemand sah.
+  // Deshalb steht sein Alter jetzt im Kopf, mit Farbe: gruen frisch, gold
+  // aelter als drei Tage, rot aelter als die laufende Woche.
+  const alter = ki ? tageHer(ki.generated) : null;
+  const falscheWoche = ki && woche && ki.week !== woche;
+  const kiFarbe = alter === null ? C.muted3
+    : falscheWoche || alter > 7 ? C.red
+    : alter > 3 ? C.gold : C.green;
+
   return (
-    <header style={{ borderBottom: `1px solid ${C.line}`, padding: "20px 16px 14px" }}>
+    <header style={{ borderBottom: `1px solid ${C.line}`, padding: "20px 16px 12px" }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         <h1 style={{
           margin: 0, fontFamily: FONT.head, fontSize: 30, letterSpacing: "0.04em",
@@ -177,11 +230,88 @@ function Kopf({ generated }) {
         }}>
           Cako&rsquo;s <span style={{ color: C.gold }}>NFL World</span>
         </h1>
-        <p style={{ margin: "4px 0 0", fontFamily: FONT.mono, fontSize: 11, color: C.muted3 }}>
-          {generated ? `Daten vom ${new Date(generated).toLocaleString("de-DE")}` : " "}
-        </p>
+        <div style={{
+          display: "flex", gap: 14, flexWrap: "wrap", marginTop: 5,
+          fontFamily: FONT.mono, fontSize: 10, color: C.muted3,
+        }}>
+          <span>{generated ? `Daten ${new Date(generated).toLocaleString("de-DE")}` : " "}</span>
+          {ki && (
+            <span style={{ color: kiFarbe }}>
+              KI-Kontext {alter === 0 ? "heute" : alter === 1 ? "gestern" : `vor ${alter} Tagen`}
+              {" · "}Woche {ki.week}
+              {ki.coverage ? ` · ${ki.coverage}` : ""}
+              {falscheWoche && " · veraltet"}
+            </span>
+          )}
+        </div>
       </div>
     </header>
+  );
+}
+
+/** Vorschau auf die laufende Woche: was auffaellt, bevor gespielt wird. */
+function Wochenvorschau({ data, model, ki, woche }) {
+  const punkte = useMemo(() => {
+    const offen = data.schedule.filter((g) => g.w === woche && g.hs === null);
+    if (!offen.length) return null;
+
+    const mit = offen.map((g) => {
+      const key = `${g.w}-${g.a}-${g.h}`;
+      const pk = data.picks[key];
+      const pHome = predictHome(model, features(g, data.teams, data.kiadj));
+      const tipp = pk ? pk.pick : pHome === null ? null : pHome >= 0.5 ? g.h : g.a;
+      const p = pk ? pk.p : pHome === null ? null : Math.max(pHome, 1 - pHome);
+      const mh = marketHome(g);
+      const marktTipp = pk && pk.vp ? pk.vp : mh === null ? null : mh >= 0.5 ? g.h : g.a;
+      const an = data.analysis[key];
+      return { g, key, tipp, p, marktTipp, an, gegenMarkt: tipp && marktTipp && tipp !== marktTipp };
+    }).filter((x) => x.tipp);
+
+    const gegen = mit.filter((x) => x.gegenMarkt);
+    const knapp = mit.filter((x) => x.p !== null && x.p < 0.56).sort((a, b) => a.p - b.p);
+    const sicher = mit.filter((x) => x.p !== null).sort((a, b) => b.p - a.p)[0];
+    const kiTreffer = ki && ki.games
+      ? Object.entries(ki.games)
+          .filter(([k, v]) => k.startsWith(`${woche}-`) && (v.ha || v.aa))
+          .sort((a, b) => Math.max(Math.abs(b[1].ha), Math.abs(b[1].aa)) - Math.max(Math.abs(a[1].ha), Math.abs(a[1].aa)))[0]
+      : null;
+    return { anzahl: mit.length, gegen, knapp, sicher, kiTreffer };
+  }, [data, model, ki, woche]);
+
+  if (!punkte) return null;
+
+  return (
+    <div style={{
+      margin: "0 16px 14px", padding: "12px 14px", borderRadius: 8,
+      background: C.surface2, border: `1px solid ${C.line}`,
+    }}>
+      <div style={{
+        fontFamily: FONT.head, fontSize: 14, letterSpacing: "0.08em",
+        textTransform: "uppercase", color: C.text2, marginBottom: 7,
+      }}>
+        Woche {woche} &ndash; Vorschau
+      </div>
+      <div style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted, lineHeight: 1.9 }}>
+        {punkte.anzahl} offene Spiele.{" "}
+        {punkte.gegen.length === 0
+          ? "Das Modell ist sich diese Woche mit dem Markt ueber jeden Sieger einig."
+          : `Gegen den Markt in ${punkte.gegen.length} ${punkte.gegen.length === 1 ? "Spiel" : "Spielen"}: ` +
+            punkte.gegen.map((x) => `${x.tipp} statt ${x.marktTipp}`).join(", ") + "."}
+        {punkte.sicher && (
+          <><br />Sicherster Tipp: <span style={{ color: C.text2 }}>{name(punkte.sicher.tipp)}</span>{" "}
+            mit {pct(punkte.sicher.p)}.</>
+        )}
+        {punkte.knapp.length > 0 && (
+          <><br />Muenzwurf-Kandidaten: {punkte.knapp.slice(0, 3)
+            .map((x) => `${x.g.a} bei ${x.g.h} (${pct(x.p)})`).join(", ")}.</>
+        )}
+        {punkte.kiTreffer && (
+          <><br /><span style={{ color: C.gold }}>Groesste KI-Anpassung:</span>{" "}
+            {punkte.kiTreffer[0].split("-").slice(1).join(" bei ")} &mdash;{" "}
+            {punkte.kiTreffer[1].summary}</>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -305,7 +435,7 @@ function SpielZeile({ game, pick, pModel, pMarkt }) {
   );
 }
 
-function SpielplanTab({ data, model }) {
+function SpielplanTab({ data, model, ki }) {
   const wochen = useMemo(
     () => [...new Set(data.schedule.map((g) => g.w))].sort((a, b) => a - b),
     [data]
@@ -344,6 +474,8 @@ function SpielplanTab({ data, model }) {
     <>
       <WochenWahl wochen={wochen} woche={woche} setWoche={setWoche} />
 
+      <Wochenvorschau data={data} model={model} ki={ki} woche={woche} />
+
       {bilanz.n > 0 && (
         <div style={{
           margin: "8px 16px 14px", padding: "10px 14px", borderRadius: 8,
@@ -381,6 +513,604 @@ function SpielplanTab({ data, model }) {
         ))}
       </div>
     </>
+  );
+}
+
+/* ----------------------------------------------------------------- Live */
+
+const ESPN = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
+/** ESPN nutzt teils andere Kuerzel als nflverse. */
+const ESPN_CODE = { LAR: "LA", WSH: "WAS" };
+
+/**
+ * Standardnormalverteilung, Naeherung nach Abramowitz & Stegun 26.2.17.
+ * Maximaler Fehler unter 7.5e-8 - fuer eine Siegwahrscheinlichkeit reichlich.
+ */
+function normCdf(x) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989423 * Math.exp((-x * x) / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return x >= 0 ? 1 - p : p;
+}
+
+/**
+ * Live-Siegwahrscheinlichkeit des Heimteams.
+ *
+ * Gedanke: Der Endabstand ist normalverteilt um eine Erwartung, die sich aus
+ * dem aktuellen Punktestand plus dem noch ausstehenden Anteil der Vorab-
+ * Erwartung zusammensetzt. Je weniger Zeit bleibt, desto kleiner die Streuung
+ * und desto mehr zaehlt der Stand.
+ *
+ * Die Konstanten sind an echten Spielzustaenden geeicht und stammen
+ * unveraendert aus der laufenden Fassung:
+ *   1.94  Punkte Wert des Ballbesitzes, abklingend gegen Spielende
+ *   16    Umrechnung Logit -> erwarteter Punkteabstand
+ *   12.82 Streuung ueber ein volles Spiel, 3.12 Sockel am Ende
+ */
+function liveWP(pPre, homeScore, awayScore, secLeft, possHome) {
+  const z = Math.max(0, Math.min(1, secLeft / 3600));
+  if (z === 0) return homeScore > awayScore ? 1 : homeScore < awayScore ? 0 : 0.5;
+  const margin0 = 16 * Math.log10(pPre / (1 - pPre));
+  const poss = possHome === null || possHome === undefined ? 0 : possHome ? 1.94 : -1.94;
+  const erwarteterAbstand = homeScore - awayScore + margin0 * z + poss * Math.min(1, z * 3);
+  const streuung = 12.82 * Math.sqrt(z) + 3.12;
+  return normCdf(erwarteterAbstand / streuung);
+}
+
+/** Restsekunden aus Viertel und Uhr. Verlaengerung laeuft ueber 10 Minuten. */
+function restSekunden(state, period, displayClock) {
+  if (state === "post") return 0;
+  if (state === "pre") return 3600;
+  const [m, s] = String(displayClock || "0:00").split(":").map(Number);
+  const inViertel = (isNaN(m) ? 0 : m * 60) + (isNaN(s) ? 0 : s);
+  return period <= 4 ? (4 - period) * 900 + inViertel : Math.min(600, inViertel);
+}
+
+const ymd = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+
+function useLiveSpiele(aktiv, data, model) {
+  const [spiele, setSpiele] = useState([]);
+  const [kurven, setKurven] = useState({});
+  const [fehler, setFehler] = useState(null);
+  const [stand, setStand] = useState(null);
+
+  useEffect(() => {
+    if (!aktiv) return;
+    let gestoppt = false;
+
+    /** Vorab-Wahrscheinlichkeit des Heimteams aus dem eigenen Modell. */
+    const pPre = (h, a) => {
+      const p = predictHome(model, features({ h, a, hr: 7, ar: 7 }, data.teams, {}));
+      return p === null ? 0.5 : Math.min(0.97, Math.max(0.03, p));
+    };
+
+    /** Verlauf aus den Scoring Plays eines Spiels. */
+    const holeKurve = async (sp) => {
+      try {
+        const r = await fetch(`${ESPN}/summary?event=${sp.id}`);
+        if (!r.ok) return;
+        const plays = (await r.json()).scoringPlays || [];
+        const p0 = pPre(sp.h, sp.a);
+        const punkte = [{ t: 0, p: liveWP(p0, 0, 0, 3600, null), label: "Kickoff", hs: 0, as: 0 }];
+        for (const pl of plays) {
+          const per = (pl.period && pl.period.number) || 1;
+          const [m, s] = String((pl.clock && pl.clock.displayValue) || "0:00").split(":").map(Number);
+          const rest = per <= 4 ? (4 - per) * 900 + ((m || 0) * 60 + (s || 0)) : 0;
+          const hs = Number(pl.homeScore) || 0, as = Number(pl.awayScore) || 0;
+          punkte.push({
+            t: 3600 - rest, p: liveWP(p0, hs, as, rest, null),
+            label: pl.text ? String(pl.text).slice(0, 70) : "", hs, as,
+          });
+        }
+        punkte.push({
+          t: 3600 - sp.secLeft, p: sp.wp,
+          label: sp.state === "post" ? "Endstand" : "jetzt", hs: sp.hs, as: sp.as,
+        });
+        if (!gestoppt) setKurven((k) => ({ ...k, [sp.id]: punkte.sort((x, y) => x.t - y.t) }));
+      } catch { /* ein fehlendes Detail darf den Rest nicht kippen */ }
+    };
+
+    const laden = async () => {
+      try {
+        const von = new Date(Date.now() - 4 * 864e5), bis = new Date(Date.now() + 10 * 864e5);
+        const r = await fetch(`${ESPN}/scoreboard?dates=${ymd(von)}-${ymd(bis)}&limit=200`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const events = (await r.json()).events || [];
+
+        const liste = events.map((ev) => {
+          const c = ev.competitions && ev.competitions[0];
+          if (!c) return null;
+          const H = c.competitors.find((x) => x.homeAway === "home");
+          const A = c.competitors.find((x) => x.homeAway === "away");
+          if (!H || !A) return null;
+          const kurz = (x) => ESPN_CODE[x.team.abbreviation] || x.team.abbreviation;
+          const h = kurz(H), a = kurz(A);
+          if (!data.teams[h] || !data.teams[a]) return null;
+
+          const st = ev.status || {};
+          const state = st.type ? st.type.state : "pre";
+          const period = st.period || 0;
+          const clock = st.displayClock || "0:00";
+          const secLeft = restSekunden(state, period, clock);
+
+          let possHome = null;
+          if (c.situation && c.situation.possession) {
+            possHome = c.situation.possession === H.id ? true
+              : c.situation.possession === A.id ? false : null;
+          }
+          const hs = Number(H.score) || 0, as = Number(A.score) || 0;
+          const vorbereitung = Number((ev.season && ev.season.type) || (c.type && c.type.id) || 2) === 1;
+
+          return {
+            id: ev.id, h, a, hs, as, state, period, clock, secLeft, possHome,
+            pre: vorbereitung,
+            ko: ev.date ? new Date(ev.date) : null,
+            detail: st.type ? st.type.shortDetail : "",
+            wp: liveWP(pPre(h, a), hs, as, state === "pre" ? 3600 : secLeft,
+                       state === "in" ? possHome : null),
+          };
+        }).filter(Boolean);
+
+        if (gestoppt) return;
+        setSpiele(liste);
+        setFehler(null);
+        setStand(new Date());
+
+        const laufend = liste.filter((x) => x.state === "in").slice(0, 4);
+        const beendet = liste.filter((x) => x.state === "post")
+          .sort((x, y) => (y.ko || 0) - (x.ko || 0)).slice(0, 3);
+        for (const sp of [...laufend, ...beendet]) if (sp.id) holeKurve(sp);
+      } catch (e) {
+        if (!gestoppt) setFehler("Live-Feed nicht erreichbar – später nochmal versuchen.");
+      }
+    };
+
+    laden();
+    const timer = setInterval(laden, 45000);
+    const beiFokus = () => { if (document.visibilityState === "visible") laden(); };
+    document.addEventListener("visibilitychange", beiFokus);
+    window.addEventListener("focus", beiFokus);
+    return () => {
+      gestoppt = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", beiFokus);
+      window.removeEventListener("focus", beiFokus);
+    };
+  }, [aktiv, data, model]);
+
+  return { spiele, kurven, fehler, stand };
+}
+
+/** Verlaufskurve der Siegwahrscheinlichkeit, Flaeche ueber und unter der Mitte. */
+function WPKurve({ punkte, hCode, aCode, hoehe = 130 }) {
+  if (!punkte || punkte.length < 2) return null;
+  const B = 320, H = hoehe, pad = 2;
+  const x = (t) => (t / 3600) * B;
+  const y = (p) => pad + (1 - p) * (H - 2 * pad);
+  const linie = punkte.map((pt, i) => `${i ? "L" : "M"}${x(pt.t).toFixed(1)},${y(pt.p).toFixed(1)}`).join(" ");
+  const flaeche = `${linie} L${x(punkte[punkte.length - 1].t).toFixed(1)},${y(0.5).toFixed(1)} L${x(punkte[0].t).toFixed(1)},${y(0.5).toFixed(1)} Z`;
+  // Der letzte Punkt ist "jetzt" oder "Endstand". Beim Schlusspfiff springt die
+  // Wahrscheinlichkeit auf 0 oder 100 - das ist das Umklappen auf Gewissheit,
+  // kein Umschwung im Spiel. Ohne diese Ausnahme meldet jedes beendete Spiel
+  // den Abpfiff als groessten Kipppunkt.
+  const groessterSprung = punkte.slice(0, -1).reduce((best, pt, i) => {
+    if (i === 0) return best;
+    const d = Math.abs(pt.p - punkte[i - 1].p);
+    return !best || d > best.d ? { d, pt } : best;
+  }, null);
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${B} ${H}`} style={{ width: "100%", height: hoehe, display: "block" }}>
+        <defs>
+          {/* Ueber der Mittellinie gehoert die Flaeche dem Heimteam, darunter dem Gast. */}
+          <clipPath id={`oben-${hCode}-${aCode}`}><rect x="0" y="0" width={B} height={y(0.5)} /></clipPath>
+          <clipPath id={`unten-${hCode}-${aCode}`}><rect x="0" y={y(0.5)} width={B} height={H - y(0.5)} /></clipPath>
+        </defs>
+        <path d={flaeche} fill={color(hCode)} opacity="0.3" clipPath={`url(#oben-${hCode}-${aCode})`} />
+        <path d={flaeche} fill={color(aCode)} opacity="0.3" clipPath={`url(#unten-${hCode}-${aCode})`} />
+        <line x1="0" y1={y(0.5)} x2={B} y2={y(0.5)} stroke={C.line2} strokeWidth="1" strokeDasharray="3 3" />
+        {[900, 1800, 2700].map((t) => (
+          <line key={t} x1={x(t)} y1="0" x2={x(t)} y2={H} stroke={C.line} strokeWidth="0.5" />
+        ))}
+        <path d={linie} fill="none" stroke={C.text} strokeWidth="1.6" strokeLinejoin="round" />
+        {groessterSprung && groessterSprung.d > 0.15 && (
+          <circle cx={x(groessterSprung.pt.t)} cy={y(groessterSprung.pt.p)} r="3.2"
+                  fill={C.gold} stroke={C.bg} strokeWidth="1" />
+        )}
+      </svg>
+      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: FONT.mono, fontSize: 9, color: C.muted3 }}>
+        <span>Kickoff</span><span>Q2</span><span>Halbzeit</span><span>Q4</span><span>Ende</span>
+      </div>
+      {groessterSprung && groessterSprung.d > 0.15 && (
+        <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.gold, marginTop: 5, lineHeight: 1.6 }}>
+          Groesster Kipppunkt: {Math.round(groessterSprung.d * 100)} Punkte &mdash;{" "}
+          {groessterSprung.pt.label}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LiveKarte({ sp, kurve }) {
+  const laeuft = sp.state === "in";
+  const fertig = sp.state === "post";
+  const wpHeim = sp.wp;
+  const fuehrend = wpHeim >= 0.5 ? sp.h : sp.a;
+
+  return (
+    <div style={{
+      padding: "13px 14px", marginBottom: 10, borderRadius: 9,
+      background: C.surface, border: `1px solid ${laeuft ? C.gold + "66" : C.line}`,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <span style={{ fontFamily: FONT.mono, fontSize: 10, color: laeuft ? C.gold : C.muted3 }}>
+          {laeuft ? `LIVE · Q${sp.period} ${sp.clock}` : fertig ? "Endstand" : sp.detail}
+          {sp.pre && " · Vorbereitungsspiel"}
+        </span>
+        {sp.possHome !== null && laeuft && (
+          <span style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted3 }}>
+            Ball bei {sp.possHome ? sp.h : sp.a}
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 7 }}>
+        <div>
+          <div style={{ fontSize: 14, color: C.text }}>
+            {name(sp.a)} <span style={{ fontFamily: FONT.mono, color: C.muted }}>{sp.as}</span>
+          </div>
+          <div style={{ fontSize: 14, color: C.text }}>
+            bei {name(sp.h)} <span style={{ fontFamily: FONT.mono, color: C.muted }}>{sp.hs}</span>
+          </div>
+        </div>
+        {!sp.pre && (
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontFamily: FONT.mono, fontSize: 19, color: color(fuehrend) === C.bg ? C.gold : C.text }}>
+              {pct(Math.max(wpHeim, 1 - wpHeim))}
+            </div>
+            <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3 }}>{fuehrend}</div>
+          </div>
+        )}
+      </div>
+
+      {sp.pre ? (
+        <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 8 }}>
+          Vorbereitungsspiel &ndash; ohne Prognose. Diese Spiele fliessen auch nicht
+          in Elo, Modell oder Bilanz ein.
+        </p>
+      ) : kurve ? (
+        <div style={{ marginTop: 10 }}>
+          <WPKurve punkte={kurve} hCode={sp.h} aCode={sp.a} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function LiveTab({ data, model }) {
+  const { spiele, kurven, fehler, stand } = useLiveSpiele(true, data, model);
+
+  const laufend = spiele.filter((s) => s.state === "in");
+  const beendet = spiele.filter((s) => s.state === "post")
+    .sort((a, b) => (b.ko || 0) - (a.ko || 0)).slice(0, 3);
+  const kommend = spiele.filter((s) => s.state === "pre")
+    .sort((a, b) => (a.ko || 0) - (b.ko || 0)).slice(0, 5);
+
+  return (
+    <div style={{ padding: "14px 16px 40px" }}>
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginBottom: 12,
+      }}>
+        <span>Aktualisiert sich alle 45 Sekunden</span>
+        <span>{stand ? stand.toLocaleTimeString("de-DE") : "…"}</span>
+      </div>
+
+      {fehler && (
+        <div style={{
+          padding: "11px 13px", borderRadius: 8, marginBottom: 12,
+          background: "rgba(224,104,92,0.09)", border: `1px solid ${C.red}55`,
+          fontFamily: FONT.mono, fontSize: 11, color: C.red,
+        }}>
+          {fehler}
+        </div>
+      )}
+
+      {laufend.length > 0 && (
+        <Abschnitt titel="Laufende Spiele" hinweis="Die Kurve zeigt den Verlauf der Siegwahrscheinlichkeit. Ein Goldpunkt markiert den groessten Umschwung.">
+          {laufend.map((s) => <LiveKarte key={s.id} sp={s} kurve={kurven[s.id]} />)}
+        </Abschnitt>
+      )}
+
+      {beendet.length > 0 && (
+        <Abschnitt titel="Zuletzt beendet">
+          {beendet.map((s) => <LiveKarte key={s.id} sp={s} kurve={kurven[s.id]} />)}
+        </Abschnitt>
+      )}
+
+      {kommend.length > 0 && (
+        <Abschnitt titel="Als Naechstes">
+          {kommend.map((s) => <LiveKarte key={s.id} sp={s} kurve={null} />)}
+        </Abschnitt>
+      )}
+
+      {!fehler && spiele.length === 0 && (
+        <p style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted3 }}>
+          Gerade keine Spiele im Zeitfenster.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------- Tippschein */
+
+/**
+ * Poisson-Binomial-Verteilung: Wahrscheinlichkeit fuer genau k Treffer bei n
+ * unabhaengigen Tipps mit je eigener Trefferchance.
+ *
+ * Die uebliche Binomialformel taugt hier nicht - sie setzt fuer alle Tipps
+ * dieselbe Wahrscheinlichkeit voraus. Ein Schein aus 85 % und 52 % ist aber
+ * etwas voellig anderes als zweimal 68 %, obwohl der Schnitt gleich ist.
+ */
+function poissonBinomial(ps) {
+  let dist = [1];
+  for (const p of ps) {
+    const next = new Array(dist.length + 1).fill(0);
+    for (let k = 0; k < dist.length; k++) {
+      next[k] += dist[k] * (1 - p);
+      next[k + 1] += dist[k] * p;
+    }
+    dist = next;
+  }
+  return dist;
+}
+
+/** Risikoklasse nach Quotenniveau - nicht nach Abweichung vom Markt. */
+function risikoKlasse(quote) {
+  if (quote < 1.6) return { id: "fav", label: "Favorit", farbe: C.blue };
+  if (quote <= 2.3) return { id: "mid", label: "Mittel", farbe: C.gold };
+  return { id: "out", label: "Aussenseiter", farbe: C.red };
+}
+
+function TippscheinTab({ data, model }) {
+  const wochen = useMemo(
+    () => [...new Set(data.schedule.filter((g) => g.hs === null).map((g) => g.w))].sort((a, b) => a - b),
+    [data]
+  );
+  const [woche, setWoche] = useState(() => currentWeek(data.schedule));
+
+  /** Alle offenen Spiele der Woche als moegliche Legs, inklusive Quote und EV. */
+  const legs = useMemo(() => {
+    return data.schedule
+      .filter((g) => g.w === woche && g.hs === null)
+      .map((g) => {
+        const key = `${g.w}-${g.a}-${g.h}`;
+        const pick = data.picks[key];
+        const pHome = predictHome(model, features(g, data.teams, data.kiadj));
+        const tipp = pick ? pick.pick : pHome === null ? null : pHome >= 0.5 ? g.h : g.a;
+        const p = pick ? pick.p : pHome === null ? null : Math.max(pHome, 1 - pHome);
+        const quote = tipp === g.h ? g.mh : tipp === g.a ? g.ma : null;
+        if (!tipp || p === null || !quote) return null;
+        return { key, g, tipp, p, quote, ev: p * quote - 1, risiko: risikoKlasse(quote) };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.ev - a.ev);
+  }, [data, model, woche]);
+
+  const [gewaehlt, setGewaehlt] = useState(() => new Set());
+  const [nurPositiv, setNurPositiv] = useState(true);
+
+  const umschalten = (k) => setGewaehlt((s) => {
+    const n = new Set(s);
+    n.has(k) ? n.delete(k) : n.add(k);
+    return n;
+  });
+
+  /** Vorschlag nach Buraks Mischung: Aussenseiter und Favoriten, nur positiver EV. */
+  const mischen = (nOut, nFav) => {
+    const brauchbar = legs.filter((l) => l.ev > 0);
+    const out = brauchbar.filter((l) => l.risiko.id === "out").slice(0, nOut);
+    const fav = brauchbar.filter((l) => l.risiko.id !== "out").slice(0, nFav);
+    setGewaehlt(new Set([...out, ...fav].map((l) => l.key)));
+  };
+
+  const schein = legs.filter((l) => gewaehlt.has(l.key));
+  const gesamtQuote = schein.reduce((q, l) => q * l.quote, 1);
+  const verteilung = useMemo(() => poissonBinomial(schein.map((l) => l.p)), [schein]);
+  const alleTreffen = verteilung.length ? verteilung[verteilung.length - 1] : 0;
+  const erwartet = schein.reduce((s, l) => s + l.p, 0);
+  const scheinEV = alleTreffen * gesamtQuote - 1;
+  const sichtbar = nurPositiv ? legs.filter((l) => l.ev > 0 || gewaehlt.has(l.key)) : legs;
+  const versteckt = legs.length - sichtbar.length;
+
+  const positive = legs.filter((l) => l.ev > 0).length;
+
+  return (
+    <div style={{ padding: "14px 16px 40px" }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+        {wochen.slice(0, 8).map((w) => (
+          <button key={w} onClick={() => { setWoche(w); setGewaehlt(new Set()); }} style={{
+            width: 36, height: 30, borderRadius: 5, cursor: "pointer",
+            border: `1px solid ${w === woche ? C.gold : C.line}`,
+            background: w === woche ? "rgba(217,164,65,0.12)" : C.surface,
+            color: w === woche ? C.gold : C.muted, fontFamily: FONT.mono, fontSize: 12,
+          }}>
+            {w}
+          </button>
+        ))}
+      </div>
+
+      <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, margin: "0 0 12px", lineHeight: 1.7 }}>
+        Woche {woche} &middot; {legs.length} offene Spiele, davon {positive} mit positivem
+        Erwartungswert. Der Erwartungswert je Tipp ist
+        Wahrscheinlichkeit mal Quote minus eins. Ein Spiel mit 80 % bei Quote 1,12 hat
+        einen EV von &minus;0,10 &ndash; hohe Trefferchance, trotzdem ein Verlustgeschaeft.
+      </p>
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+        {[["2 Aussenseiter + 4 Favoriten", 2, 4], ["1 + 3", 1, 3], ["3 + 3", 3, 3]].map(([l, o, f]) => (
+          <button key={l} onClick={() => mischen(o, f)} style={{
+            padding: "6px 11px", borderRadius: 5, cursor: "pointer",
+            border: `1px solid ${C.line}`, background: C.surface, color: C.text2,
+            fontFamily: FONT.mono, fontSize: 11,
+          }}>
+            {l}
+          </button>
+        ))}
+        {gewaehlt.size > 0 && (
+          <button onClick={() => setGewaehlt(new Set())} style={{
+            padding: "6px 11px", borderRadius: 5, cursor: "pointer",
+            border: `1px solid ${C.line}`, background: "transparent", color: C.muted3,
+            fontFamily: FONT.mono, fontSize: 11,
+          }}>
+            leeren
+          </button>
+        )}
+      </div>
+
+      {/* Auswertung des Scheins */}
+      {schein.length > 0 && (
+        <div style={{
+          padding: "13px 15px", marginBottom: 14, borderRadius: 9,
+          background: C.surface2, border: `1px solid ${scheinEV > 0 ? C.green + "66" : C.line}`,
+        }}>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontFamily: FONT.mono, fontSize: 12 }}>
+            <span style={{ color: C.text }}>
+              {schein.length} Tipps &middot; Gesamtquote{" "}
+              <strong style={{ color: C.gold }}>{gesamtQuote.toFixed(2)}</strong>
+            </span>
+            <span style={{ color: C.muted }}>
+              alle treffen: {pct(alleTreffen, 1)}
+            </span>
+          </div>
+          <div style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted, marginTop: 7, lineHeight: 1.8 }}>
+            Erwartete Treffer: {erwartet.toFixed(1)} von {schein.length}<br />
+            Erwartungswert des Scheins:{" "}
+            <span style={{ color: scheinEV > 0 ? C.green : C.red }}>
+              {scheinEV > 0 ? "+" : ""}{scheinEV.toFixed(2)} je eingesetztem Euro
+            </span>
+          </div>
+
+          {/* Der EV steht und faellt mit der Frage, ob die Modellwahrscheinlichkeit
+              besser ist als die des Marktes. Die Bilanz sagt dazu bisher: nein.
+              Ohne diesen Hinweis liest sich "+1,91 je Euro" wie eine Zusage. */}
+          {scheinEV > 0 && data.duel && data.duel.clv && (
+            <div style={{
+              marginTop: 11, padding: "10px 12px", borderRadius: 7,
+              background: "rgba(217,164,65,0.07)", border: `1px solid ${C.gold}44`,
+              fontFamily: FONT.mono, fontSize: 10, color: C.text2, lineHeight: 1.75,
+            }}>
+              <strong style={{ color: C.gold }}>Was dieser Erwartungswert voraussetzt:</strong>{" "}
+              dass die Modellwahrscheinlichkeit naeher an der Wahrheit liegt als die Quote.
+              Genau das ist bisher nicht belegt. Das Modell steht bei{" "}
+              {data.duel.m}/{data.duel.n} gegen {data.duel.v}/{data.duel.n} fuer den Markt,
+              bei Uneinigkeit {data.duel.dis_m}/{data.duel.dis_n}, und die Quote bewegt sich
+              nur in {data.duel.clv.pos} % der Faelle nach dem Tipp in unsere Richtung.
+              <br /><br />
+              Ein positiver EV entsteht rechnerisch immer dort, wo das Modell vom Markt
+              abweicht. Ob die Abweichung Wissen ist oder blosse Vorsicht, entscheidet
+              nicht diese Zahl, sondern die Bilanz im Vegas-Duell.
+            </div>
+          )}
+
+          {/* Trefferverteilung */}
+          <div style={{ marginTop: 11 }}>
+            <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginBottom: 5 }}>
+              Verteilung der Treffer
+            </div>
+            {/* Auf den hoechsten Balken normiert, nicht auf 1 - sonst sind alle
+                Balken bei sechs Tipps so flach, dass man nichts erkennt. */}
+            <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 62 }}>
+              {(() => {
+                const maxP = Math.max(...verteilung);
+                return verteilung.map((p, k) => (
+                  <div key={k} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                    <div style={{ fontFamily: FONT.mono, fontSize: 8, color: C.muted3, textAlign: "center" }}>
+                      {p >= 0.05 ? Math.round(p * 100) : ""}
+                    </div>
+                    <div style={{
+                      height: Math.max(2, (p / maxP) * 40), borderRadius: "2px 2px 0 0",
+                      background: k === verteilung.length - 1 ? C.green : C.line2,
+                    }} />
+                    <div style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted3, textAlign: "center", marginTop: 3 }}>
+                      {k}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+            <div style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted3, marginTop: 4 }}>
+              wahrscheinlichste Zahl:{" "}
+              {verteilung.indexOf(Math.max(...verteilung))} Treffer
+            </div>
+          </div>
+        </div>
+      )}
+
+      <label style={{
+        display: "flex", alignItems: "center", gap: 7, marginBottom: 10,
+        fontFamily: FONT.mono, fontSize: 11, color: C.muted, cursor: "pointer",
+      }}>
+        <input type="checkbox" checked={nurPositiv} onChange={(e) => setNurPositiv(e.target.checked)} />
+        nur Tipps mit positivem Erwartungswert zeigen
+        {versteckt > 0 && <span style={{ color: C.muted3 }}>({versteckt} ausgeblendet)</span>}
+      </label>
+
+      {sichtbar.map((l) => {
+        const an = gewaehlt.has(l.key);
+        return (
+          <button
+            key={l.key}
+            onClick={() => umschalten(l.key)}
+            style={{
+              display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left",
+              padding: "10px 12px", marginBottom: 6, borderRadius: 8, cursor: "pointer",
+              background: an ? "rgba(217,164,65,0.09)" : C.surface,
+              border: `1px solid ${an ? C.gold : C.line}`,
+            }}
+          >
+            <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: color(l.tipp) }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: C.text }}>{name(l.tipp)}</div>
+              <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>
+                gegen {name(l.tipp === l.g.h ? l.g.a : l.g.h)}
+                {" · "}
+                <span style={{ color: l.risiko.farbe }}>{l.risiko.label}</span>
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: FONT.mono, fontSize: 13, color: C.text }}>
+                {pct(l.p)} &middot; {l.quote.toFixed(2)}
+              </div>
+              <div style={{ fontFamily: FONT.mono, fontSize: 10, color: l.ev > 0 ? C.green : C.red }}>
+                EV {l.ev > 0 ? "+" : ""}{l.ev.toFixed(2)}
+              </div>
+            </div>
+          </button>
+        );
+      })}
+
+      {sichtbar.length === 0 && (
+        <div style={{
+          padding: "13px 15px", borderRadius: 8, background: C.surface,
+          border: `1px solid ${C.line}`, fontFamily: FONT.mono, fontSize: 11,
+          color: C.muted, lineHeight: 1.8,
+        }}>
+          {legs.length === 0
+            ? "Keine offenen Spiele mit Quote in dieser Woche."
+            : <>
+                Kein einziger der {legs.length} Tipps hat einen positiven Erwartungswert.
+                Der Markt zahlt diese Woche schlechter, als das Modell die Spiele einschaetzt.
+                <br /><br />
+                <span style={{ color: C.text2 }}>Das ist eine Aussage, kein Fehler:</span> nicht
+                zu spielen ist hier die rechnerisch beste Entscheidung. Wer trotzdem sehen will,
+                was es gaebe, blendet oben die Filterung aus.
+              </>}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -486,7 +1216,7 @@ function DepthChart({ code, depth }) {
   );
 }
 
-function MatchupTab({ data, model }) {
+function MatchupTab({ data, model, ki }) {
   const wochen = useMemo(
     () => [...new Set(data.schedule.map((g) => g.w))].sort((a, b) => a - b),
     [data]
@@ -606,6 +1336,72 @@ function MatchupTab({ data, model }) {
         </Abschnitt>
       )}
 
+      {/* Was die Recherche gefunden hat */}
+      {ki && ki.games && ki.games[key] && (
+        <Abschnitt
+          titel="KI-Kontext"
+          hinweis={`Recherchierte Nachrichtenlage, Stand ${ki.games[key].date || ki.generated}. Die Werte sind Elo-Anpassungen, 0 bedeutet: nichts Relevantes gefunden.`}
+        >
+          <div style={{
+            padding: "11px 13px", background: C.surface,
+            border: `1px solid ${C.line}`, borderRadius: 8,
+          }}>
+            <div style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted, marginBottom: 7 }}>
+              {g.h} {ki.games[key].ha > 0 ? "+" : ""}{ki.games[key].ha}
+              {" · "}
+              {g.a} {ki.games[key].aa > 0 ? "+" : ""}{ki.games[key].aa}
+              {!ki.games[key].ha && !ki.games[key].aa && (
+                <span style={{ color: C.muted3 }}> &ndash; keine Anpassung</span>
+              )}
+            </div>
+            <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.7 }}>
+              {ki.games[key].summary}
+            </div>
+            {(ki.games[key].factors || []).length > 0 && (
+              <ul style={{ margin: "8px 0 0", paddingLeft: 17 }}>
+                {ki.games[key].factors.map((f, i) => (
+                  <li key={i} style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted, lineHeight: 1.7 }}>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Abschnitt>
+      )}
+
+      {/* Wohin sich die Quote bewegt hat */}
+      {data.line_moves && data.line_moves[key] && (
+        <Abschnitt
+          titel="Marktbewegung"
+          hinweis="Wie sich die Marktwahrscheinlichkeit des Heimteams seit Eroeffnung der Quote veraendert hat. Eine grosse Bewegung heisst: der Markt hat dazugelernt."
+        >
+          {(() => {
+            const lm = data.line_moves[key];
+            return (
+              <div style={{
+                padding: "11px 13px", background: C.surface,
+                border: `1px solid ${C.line}`, borderRadius: 8,
+                fontFamily: FONT.mono, fontSize: 11, color: C.muted, lineHeight: 1.9,
+              }}>
+                Eroeffnet {lm.open.toFixed(1)} % &rarr; jetzt {lm.now.toFixed(1)} % fuer {g.h}
+                <br />
+                Bewegung{" "}
+                <span style={{ color: Math.abs(lm.move) >= 5 ? C.gold : C.text2 }}>
+                  {lm.move > 0 ? "+" : ""}{lm.move.toFixed(1)} Punkte
+                </span>{" "}
+                in {lm.steps} Schritten seit {lm.since}
+                {Math.abs(lm.move) >= 8 && (
+                  <><br /><span style={{ color: C.gold }}>
+                    Auffaellig grosse Bewegung &ndash; hier ist im Markt etwas passiert.
+                  </span></>
+                )}
+              </div>
+            );
+          })()}
+        </Abschnitt>
+      )}
+
       {/* Teamvergleich */}
       {ta && th && (
         <Abschnitt titel="Direkter Vergleich">
@@ -712,7 +1508,30 @@ function Balken({ anteil, farbe }) {
   );
 }
 
-function EloRankingTab({ data }) {
+/** Elo-Verlauf eines Teams als kleine Linie, skaliert auf die eigene Spanne. */
+function EloVerlauf({ punkte, farbe, breite = 74, hoehe = 22 }) {
+  if (!punkte || punkte.length < 2) return null;
+  const werte = punkte.map((p) => p.elo);
+  const lo = Math.min(...werte), hi = Math.max(...werte), spanne = hi - lo || 1;
+  const d = punkte.map((p, i) => {
+    const x = (i / (punkte.length - 1)) * breite;
+    const y = hoehe - 2 - ((p.elo - lo) / spanne) * (hoehe - 4);
+    return `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const trend = werte[werte.length - 1] - werte[0];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+      <svg viewBox={`0 0 ${breite} ${hoehe}`} style={{ width: breite, height: hoehe }}>
+        <path d={d} fill="none" stroke={farbe} strokeWidth="1.4" strokeLinejoin="round" />
+      </svg>
+      <span style={{ fontFamily: FONT.mono, fontSize: 9, color: trend >= 0 ? C.green : C.red }}>
+        {trend >= 0 ? "+" : ""}{trend.toFixed(0)}
+      </span>
+    </span>
+  );
+}
+
+function EloRankingTab({ data, eloHist }) {
   const [sortId, setSortId] = useState("elo");
   const spalte = RANG_SPALTEN.find((s) => s.id === sortId);
 
@@ -771,6 +1590,9 @@ function EloRankingTab({ data }) {
               <Balken anteil={anteil(r.v)} farbe={color(r.code)} />
             </div>
           </div>
+          {sortId === "elo" && eloHist && eloHist[r.code] && (
+            <EloVerlauf punkte={eloHist[r.code]} farbe={color(r.code)} />
+          )}
           <span style={{ fontFamily: FONT.mono, fontSize: 14, color: C.text, minWidth: 54, textAlign: "right" }}>
             {spalte.fmt(r.v)}
           </span>
@@ -956,9 +1778,9 @@ function VegasDuellTab({ data }) {
 /* ------------------------------------------------------------------ App */
 
 function App() {
-  const { status, data, model, err } = useGridironData();
+  const { status, data, model, ki, eloHist, err } = useGridironData();
   const [tab, setTab] = useState("sched");
-  const FERTIG = ["sched", "match", "duel", "rank"];
+  const FERTIG = ["sched", "live", "match", "slip", "duel", "rank"];
 
   if (status === "laedt") {
     return (
@@ -981,20 +1803,22 @@ function App() {
   }
 
   return (
-    <Rahmen generated={data.generated}>
+    <Rahmen generated={data.generated} ki={ki} woche={currentWeek(data.schedule)}>
       <TabLeiste aktiv={tab} setAktiv={setTab} fertig={FERTIG} />
-      {tab === "sched" && <SpielplanTab data={data} model={model} />}
-      {tab === "match" && <MatchupTab data={data} model={model} />}
+      {tab === "sched" && <SpielplanTab data={data} model={model} ki={ki} />}
+      {tab === "match" && <MatchupTab data={data} model={model} ki={ki} />}
+      {tab === "live" && <LiveTab data={data} model={model} />}
+      {tab === "slip" && <TippscheinTab data={data} model={model} />}
       {tab === "duel" && <VegasDuellTab data={data} />}
-      {tab === "rank" && <EloRankingTab data={data} />}
+      {tab === "rank" && <EloRankingTab data={data} eloHist={eloHist} />}
     </Rahmen>
   );
 }
 
-function Rahmen({ children, generated }) {
+function Rahmen({ children, generated, ki, woche }) {
   return (
     <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: FONT.body }}>
-      <Kopf generated={generated} />
+      <Kopf generated={generated} ki={ki} woche={woche} />
       <main style={{ maxWidth: 760, margin: "0 auto" }}>{children}</main>
     </div>
   );
