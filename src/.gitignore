@@ -1,0 +1,5 @@
+node_modules/
+app_next.js
+pruef/app_data.json
+pruef/model.json
+pruef/*.png
