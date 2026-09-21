@@ -2,10 +2,11 @@
    Cako's NFL World - Frontend
    =====================================================================
 
-   Neuaufbau der verlorenen Quelle. Stand: Geruest.
+   Neuaufbau der verlorenen Quelle. Stand: drei von sechs Tabs.
 
-   Fertig:  Datenschicht, Modellrechnung, Rahmen, Tab "Spielplan"
-   Offen:   Live, Matchup, Tippschein, Vegas-Duell, Elo-Ranking
+   Fertig:  Datenschicht, Modellrechnung, Rahmen,
+            Spielplan, Vegas-Duell, Elo-Ranking
+   Offen:   Live, Matchup, Tippschein
 
    Die laufende Seite (app26.js) bleibt unberuehrt, bis ein Tab hier
    nachweislich dasselbe zeigt. Vergleichsmassstab ist immer die
@@ -104,6 +105,25 @@ function marketHome(game) {
   if (!mh || !ma) return null;
   const ih = 1 / mh, ia = 1 / ma;
   return ih / (ih + ia);
+}
+
+/**
+ * Zweiseitiger Binomialtest: Wie wahrscheinlich ist eine mindestens so grosse
+ * Abweichung, wenn das Modell in Wahrheit richtig kalibriert waere?
+ *
+ * Gebraucht wird das, damit die Seite Rauschen nicht als Befund ausgibt. Bei
+ * zehn Spielen sieht "gesagt 55 %, real 75 %" dramatisch aus und ist es nicht.
+ */
+function binomP(k, n, p) {
+  if (!n) return 1;
+  const logFak = (m) => { let s = 0; for (let i = 2; i <= m; i++) s += Math.log(i); return s; };
+  const pmf = (i) => Math.exp(
+    logFak(n) - logFak(i) - logFak(n - i) + i * Math.log(p) + (n - i) * Math.log(1 - p)
+  );
+  const ziel = pmf(k) * 1.0000001;
+  let summe = 0;
+  for (let i = 0; i <= n; i++) { const x = pmf(i); if (x <= ziel) summe += x; }
+  return Math.min(1, summe);
 }
 
 /** Die anzuzeigende Woche: die niedrigste mit noch offenen Spielen. */
@@ -364,12 +384,271 @@ function SpielplanTab({ data, model }) {
   );
 }
 
+/* -------------------------------------------------------- Elo-Ranking */
+
+/** Nach welcher Spalte sortiert wird. `hoeherIstBesser` steuert die Richtung. */
+const RANG_SPALTEN = [
+  { id: "elo", label: "Elo", feld: (t) => t.elo, fmt: (v) => v.toFixed(0), hoeherIstBesser: true },
+  { id: "off", label: "Offense", feld: (t) => t.off_epa, fmt: (v) => v.toFixed(3), hoeherIstBesser: true },
+  { id: "def", label: "Defense", feld: (t) => t.def_epa, fmt: (v) => v.toFixed(3), hoeherIstBesser: false },
+  { id: "qb", label: "QB", feld: (t) => t.qb, fmt: (v) => v.toFixed(3), hoeherIstBesser: true },
+];
+
+function Balken({ anteil, farbe }) {
+  return (
+    <div style={{ height: 3, background: C.line, borderRadius: 2, overflow: "hidden" }}>
+      <div style={{ width: `${Math.max(2, anteil * 100)}%`, height: "100%", background: farbe }} />
+    </div>
+  );
+}
+
+function EloRankingTab({ data }) {
+  const [sortId, setSortId] = useState("elo");
+  const spalte = RANG_SPALTEN.find((s) => s.id === sortId);
+
+  const reihen = useMemo(() => {
+    const rs = Object.entries(data.teams).map(([code, t]) => ({ code, t, v: spalte.feld(t) }));
+    rs.sort((a, b) => (spalte.hoeherIstBesser ? b.v - a.v : a.v - b.v));
+    return rs;
+  }, [data, spalte]);
+
+  const werte = reihen.map((r) => r.v);
+  const lo = Math.min(...werte), hi = Math.max(...werte);
+  const anteil = (v) => (hi === lo ? 1 : spalte.hoeherIstBesser ? (v - lo) / (hi - lo) : (hi - v) / (hi - lo));
+
+  return (
+    <div style={{ padding: "14px 16px 40px" }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+        {RANG_SPALTEN.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSortId(s.id)}
+            style={{
+              padding: "6px 12px", borderRadius: 5, cursor: "pointer",
+              border: `1px solid ${s.id === sortId ? C.gold : C.line}`,
+              background: s.id === sortId ? "rgba(217,164,65,0.12)" : C.surface,
+              color: s.id === sortId ? C.gold : C.muted,
+              fontFamily: FONT.head, fontSize: 14, letterSpacing: "0.05em", textTransform: "uppercase",
+            }}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, margin: "0 0 10px", lineHeight: 1.6 }}>
+        Offense und QB: hoeher ist besser. Defense: niedriger ist besser, weil sie
+        gegnerische Punkterwartung je Spielzug misst. Projektion aus {data.season}.
+      </p>
+
+      {reihen.map((r, i) => (
+        <div key={r.code} style={{
+          display: "flex", alignItems: "center", gap: 11, padding: "9px 12px",
+          background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8, marginBottom: 5,
+        }}>
+          <span style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted3, width: 20, textAlign: "right" }}>
+            {i + 1}
+          </span>
+          <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: color(r.code) }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, color: C.text }}>{name(r.code)}</div>
+            <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>
+              {r.t.qb_name || "QB unbekannt"}
+              {r.t.qb_new ? " · ohne Historie" : ""}
+              {data.proj[r.code] ? ` · ${data.proj[r.code].w.toFixed(1)} Siege erwartet` : ""}
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <Balken anteil={anteil(r.v)} farbe={color(r.code)} />
+            </div>
+          </div>
+          <span style={{ fontFamily: FONT.mono, fontSize: 14, color: C.text, minWidth: 54, textAlign: "right" }}>
+            {spalte.fmt(r.v)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* --------------------------------------------------------- Vegas-Duell */
+
+function Kachel({ titel, wert, unter, farbe = C.text }) {
+  return (
+    <div style={{
+      flex: "1 1 140px", padding: "12px 14px", borderRadius: 8,
+      background: C.surface, border: `1px solid ${C.line}`,
+    }}>
+      <div style={{
+        fontFamily: FONT.head, fontSize: 12, letterSpacing: "0.09em",
+        textTransform: "uppercase", color: C.muted3, marginBottom: 5,
+      }}>
+        {titel}
+      </div>
+      <div style={{ fontFamily: FONT.mono, fontSize: 21, color: farbe }}>{wert}</div>
+      {unter && (
+        <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 3 }}>{unter}</div>
+      )}
+    </div>
+  );
+}
+
+function Abschnitt({ titel, children, hinweis }) {
+  return (
+    <section style={{ marginTop: 22 }}>
+      <h2 style={{
+        margin: "0 0 4px", fontFamily: FONT.head, fontSize: 16, fontWeight: 500,
+        letterSpacing: "0.08em", textTransform: "uppercase", color: C.text2,
+      }}>
+        {titel}
+      </h2>
+      {hinweis && (
+        <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, margin: "0 0 9px", lineHeight: 1.6 }}>
+          {hinweis}
+        </p>
+      )}
+      {children}
+    </section>
+  );
+}
+
+const VERTRAUEN = { hoch: C.green, mittel: C.gold, niedrig: C.red };
+
+function VegasDuellTab({ data }) {
+  const d = data.duel || {};
+  const quote = (k, n) => (n ? `${k}/${n}` : "–");
+
+  // Der beste Call gegen den Markt: groesste Abweichung, die aufging.
+  const bester = useMemo(() => {
+    let best = null;
+    for (const g of data.schedule) {
+      if (g.hs === null || g.as === null || g.hs === g.as) continue;
+      const p = data.picks[`${g.w}-${g.a}-${g.h}`];
+      if (!p || !p.vp || p.pick === p.vp) continue;
+      const sieger = g.hs > g.as ? g.h : g.a;
+      if (p.pick !== sieger) continue;
+      const abstand = Math.abs((p.p ?? 0.5) - (1 - (p.pm ?? 0.5)));
+      if (!best || abstand > best.abstand) best = { g, p, abstand, sieger };
+    }
+    return best;
+  }, [data]);
+
+  const vorne = d.m > d.v ? C.green : d.m < d.v ? C.red : C.gold;
+
+  return (
+    <div style={{ padding: "14px 16px 40px" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <Kachel titel="Modell" wert={quote(d.m, d.n)} farbe={vorne}
+                unter={d.n ? pct(d.m / d.n, 1) : null} />
+        <Kachel titel="Vegas" wert={quote(d.v, d.n)}
+                unter={d.n ? pct(d.v / d.n, 1) : null} />
+        <Kachel titel="Bei Uneinigkeit" wert={quote(d.dis_m, d.dis_n)}
+                unter={d.dis_n ? `${d.dis_n} von ${d.n} Spielen` : "noch keine"} />
+      </div>
+
+      {d.clv && (
+        <Abschnitt
+          titel="Closing Line Value"
+          hinweis="Bewegt sich die Quote nach dem Tipp in unsere Richtung? Der Profimassstab: unter 50 % positiv heisst, der Markt hat recht behalten."
+        >
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Kachel titel="positiv" wert={`${d.clv.pos} %`}
+                    farbe={d.clv.pos >= 50 ? C.green : C.red} unter={`${d.clv.n} Tipps`} />
+            <Kachel titel="im Schnitt" wert={`${d.clv.avg > 0 ? "+" : ""}${d.clv.avg} Pkt`} />
+          </div>
+        </Abschnitt>
+      )}
+
+      {d.cal && (
+        <Abschnitt
+          titel="Kalibrierung"
+          hinweis="Stimmt die versprochene Sicherheit? Bei so wenigen Spielen sind Abweichungen meist Zufall - erst ab etwa hundert Spielen je Band aussagekraeftig."
+        >
+          {Object.entries(d.cal).map(([band, v]) => {
+            const ab = v.real - v.pred;
+            // Abweichung nur dann hervorheben, wenn sie den Zufall ueberlebt.
+            const p = binomP(Math.round((v.real / 100) * v.n), v.n, v.pred / 100);
+            const echt = p < 0.05;
+            return (
+              <div key={band} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
+                background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8, marginBottom: 5,
+                fontFamily: FONT.mono, fontSize: 12, flexWrap: "wrap",
+              }}>
+                <span style={{ color: C.text2, width: 62 }}>{band} %</span>
+                <span style={{ color: C.muted3, width: 42 }}>n={v.n}</span>
+                <span style={{ color: C.muted, flex: 1 }}>gesagt {v.pred} %</span>
+                <span style={{ color: C.text }}>real {v.real} %</span>
+                <span style={{ color: echt ? C.gold : C.muted3, width: 52, textAlign: "right" }}>
+                  {ab > 0 ? "+" : ""}{ab.toFixed(1)}
+                </span>
+                <span style={{
+                  flexBasis: "100%", fontSize: 10,
+                  color: echt ? C.gold : C.muted3, paddingTop: 2,
+                }}>
+                  {echt
+                    ? `auffaellig (p = ${p.toFixed(2)})`
+                    : `im Rahmen des Zufalls (p = ${p.toFixed(2)}) – keine Aussage`}
+                </span>
+              </div>
+            );
+          })}
+        </Abschnitt>
+      )}
+
+      {data.edge_sources && (
+        <Abschnitt
+          titel="Welches Merkmal traegt"
+          hinweis="Trefferquote, wenn dieses Merkmal der Hauptgrund fuer die Abweichung vom Markt war. Ueber mehrere Saisons gemessen."
+        >
+          {Object.values(data.edge_sources)
+            .sort((a, b) => b.hit - a.hit)
+            .map((s) => (
+              <div key={s.label} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
+                background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8, marginBottom: 5,
+              }}>
+                <span style={{ flex: 1, fontSize: 13, color: C.text }}>{s.label}</span>
+                <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3 }}>n={s.n}</span>
+                <span style={{ fontFamily: FONT.mono, fontSize: 14, color: VERTRAUEN[s.trust] || C.text, minWidth: 56, textAlign: "right" }}>
+                  {s.hit.toFixed(1)} %
+                </span>
+              </div>
+            ))}
+          <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 7, lineHeight: 1.6 }}>
+            Rot heisst: ueber die gemessene Zahl an Spielen nicht von einem Muenzwurf
+            zu unterscheiden. Solche Merkmale sollten die Prognose kaum bewegen.
+          </p>
+        </Abschnitt>
+      )}
+
+      {bester && (
+        <Abschnitt titel="Bester Call gegen den Markt">
+          <div style={{
+            padding: "11px 13px", background: C.surface,
+            border: `1px solid ${C.green}44`, borderRadius: 8,
+          }}>
+            <div style={{ fontSize: 13, color: C.text }}>
+              {name(bester.g.a)} bei {name(bester.g.h)}
+            </div>
+            <div style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted, marginTop: 5, lineHeight: 1.7 }}>
+              Woche {bester.g.w} &middot; Modell auf {bester.p.pick} mit {pct(bester.p.p)},
+              der Markt auf {bester.p.vp}.<br />
+              Endstand {bester.g.as}:{bester.g.hs} &ndash;{" "}
+              <span style={{ color: C.green }}>{bester.sieger} gewinnt.</span>
+            </div>
+          </div>
+        </Abschnitt>
+      )}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ App */
 
 function App() {
   const { status, data, model, err } = useGridironData();
   const [tab, setTab] = useState("sched");
-  const FERTIG = ["sched"];
+  const FERTIG = ["sched", "duel", "rank"];
 
   if (status === "laedt") {
     return (
@@ -395,6 +674,8 @@ function App() {
     <Rahmen generated={data.generated}>
       <TabLeiste aktiv={tab} setAktiv={setTab} fertig={FERTIG} />
       {tab === "sched" && <SpielplanTab data={data} model={model} />}
+      {tab === "duel" && <VegasDuellTab data={data} />}
+      {tab === "rank" && <EloRankingTab data={data} />}
     </Rahmen>
   );
 }
