@@ -1,12 +1,19 @@
 name: KI-Kontextanalyse
 
+# Alle Zeiten UTC. Bewusst auf krumme Minuten: zur vollen Stunde ist GitHubs
+# Scheduler ueberlastet. Gemessen an diesem Repo (18 Laeufe, 13.-21.09.2026):
+#   "0 9 * * *"        -> Median 5,1 h Verzug, nie unter 3,9 h
+#   Minute :20/:30/:40 -> Median 1,5 h, bester Lauf 1 Minute
+# Die Zeiten liegen deshalb weit vor dem Lock-Fenster (2,5 h vor Anpfiff),
+# nicht knapp davor.
 on:
   schedule:
-    # Sonntags vor dem ersten Anstossfenster (beide Zeitzonen-Varianten)
-    - cron: "0 16 * * 0"
-    - cron: "0 17 * * 0"
-    # Sonntags nochmal vor dem Abendspiel - bis dahin kann sich viel aendern
-    - cron: "20 23 * * 0"
+    # Do 12:23 UTC - nur das Donnerstagsspiel (AI_MAX_DAYS=1), Lock Do 21:50 UTC
+    - cron: "23 12 * * 4"
+    # So 08:23 UTC - Hauptlauf fuer den Sonntag, Lock der Nachmittagsspiele 14:30 UTC
+    - cron: "23 8 * * 0"
+    # So 15:37 UTC - Nachmittagsspiele sind eingefroren, nur Abend-/Nachtspiel offen
+    - cron: "37 15 * * 0"
   workflow_dispatch: {}
 
 permissions:
@@ -27,10 +34,16 @@ jobs:
           python-version: "3.12"
 
       - name: Kontextanalyse ausfuehren
+        id: analyse
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Nur der Donnerstagslauf bekommt einen engen Horizont. Leer = ganze Woche.
+          AI_MAX_DAYS: ${{ github.event.schedule == '23 12 * * 4' && '1' || '' }}
         run: python ai_context.py
 
+      # Bewusst always(): ein Teilergebnis von heute ist mehr wert als ein
+      # vollstaendiger Kontext von vor einer Woche. Der Job bleibt trotzdem rot,
+      # wenn die Analyse gemeckert hat - die Warnung geht nicht verloren.
       - name: Aenderungen committen
         if: always()
         run: |

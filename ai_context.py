@@ -34,6 +34,7 @@ MAX_ROUNDS = 6             # Fortsetzungen bei pausierter Suche / Nachfragen
 MAX_OUTPUT_TOKENS = 16000  # Reserve fuer Recherchetext + JSON fuer ~16 Spiele
 MIN_COVERAGE = 0.7         # ab hier gilt der Lauf als erfolgreich
 HTTP_RETRIES = 3           # Wiederholversuche bei Ueberlast
+DEFAULT_MAX_DAYS = 99      # Standard: ganze offene Woche (per AI_MAX_DAYS begrenzbar)
 
 NAMES = {"ARI": "Arizona Cardinals", "ATL": "Atlanta Falcons", "BAL": "Baltimore Ravens",
          "BUF": "Buffalo Bills", "CAR": "Carolina Panthers", "CHI": "Chicago Bears",
@@ -48,21 +49,28 @@ NAMES = {"ARI": "Arizona Cardinals", "ATL": "Atlanta Falcons", "BAL": "Baltimore
          "TEN": "Tennessee Titans", "WAS": "Washington Commanders"}
 
 
-def build_prompt(week, games):
+def build_prompt(week, games, suchen=MAX_SEARCHES):
     lines = [f"{i+1}. {NAMES.get(g['a'], g['a'])} (Auswaerts) bei {NAMES.get(g['h'], g['h'])} (Heim)"
              f" - Kennung: {g['w']}-{g['a']}-{g['h']}" for i, g in enumerate(games)]
     return (
         f"Du bist der Kontext-Layer eines statistischen NFL-Vorhersagemodells. "
         f"Es geht um alle {len(games)} Spiele der Woche {week}:\n\n" + "\n".join(lines) + "\n\n"
         f"AUFGABE IN ZWEI SCHRITTEN:\n"
-        f"1) Recherchiere mit HOECHSTENS {MAX_SEARCHES} Websuchen die Nachrichtenlage der "
+        f"1) Recherchiere mit HOECHSTENS {suchen} Websuchen die Nachrichtenlage der "
         f"gesamten Woche. Nutze breite Suchen, die viele Teams auf einmal abdecken - etwa den "
         f"offiziellen Injury Report der Woche, Inactives, QB-Wechsel, wichtige Transfers. "
         f"Fuehre KEINE Einzelsuche pro Team durch.\n"
         f"2) Gib danach fuer JEDES gelistete Spiel eine Elo-Anpassung zwischen -{MAX_ADJ} und "
         f"+{MAX_ADJ} je Team aus. 0 bedeutet: keine relevanten Nachrichten. Nur klare, belegbare "
         f"Faktoren zaehlen - erfinde nichts. Findest du zu einem Spiel nichts, setze beide Werte "
-        f"auf 0 und schreibe das in die Begruendung.\n\n"
+        f"auf 0 und schreibe das in die Begruendung.\n"
+        f"WICHTIG ZUR EICHUNG: 0 ist der Normalfall, nicht die Ausnahme. In einer typischen Woche "
+        f"hat die MEHRHEIT der Spiele keine Nachrichtenlage, die eine Anpassung rechtfertigt - das "
+        f"statistische Modell kennt Form und Staerke der Teams bereits. Eine Anpassung ist nur "
+        f"gerechtfertigt bei einem konkreten, benannten Ereignis: Ausfall oder Rueckkehr eines "
+        f"Startspielers, QB-Wechsel, Trainerwechsel, Suspendierung. Ein allgemeiner Eindruck "
+        f"('Team in guter Form', 'Heimvorteil stark', 'Saisonstart') ist KEINE Anpassung und "
+        f"gehoert auf 0. Betraege ueber {MAX_ADJ // 2} nur bei einem ausgefallenen Starting-QB.\n\n"
         f"WICHTIG FUER DIE AUSGABE:\n"
         f"- Schreibe KEINEN Fliesstext und KEINE Zwischenzusammenfassung vor dem JSON. "
         f"Sobald die Recherche steht, kommt direkt das JSON-Array.\n"
@@ -143,11 +151,61 @@ def main():
         return 0
     week = min(g["w"] for g in upcoming)
     games = [g for g in upcoming if g["w"] == week]
-    valid_keys = {f"{g['w']}-{g['a']}-{g['h']}" for g in games}
-    print(f"Woche {week}: {len(games)} Spiele in einem gebuendelten Rechercheauftrag")
+    gesamt = len(games)
 
-    messages = [{"role": "user", "content": build_prompt(week, games)}]
-    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": MAX_SEARCHES}]
+    # --- Sparfilter 1: eingefrorene Picks nicht erneut recherchieren -------------
+    # Ein Pick mit st == "fix" ist festgeschrieben; neue Nachrichten koennen ihn
+    # nicht mehr aendern. Jede Suche dazu waere bezahlter Leerlauf.
+    app_picks = app.get("picks", {}) or {}
+
+    def is_locked(g):
+        p = app_picks.get(f"{g['w']}-{g['a']}-{g['h']}")
+        return bool(p) and p.get("st") == "fix"
+
+    n_locked = sum(1 for g in games if is_locked(g))
+    games = [g for g in games if not is_locked(g)]
+
+    # --- Sparfilter 2: nur Spiele innerhalb des Zeithorizonts --------------------
+    # Nachrichtenlage aendert sich taeglich. Ein Spiel in fuenf Tagen jetzt zu
+    # recherchieren ist verschwendetes Geld - es wird ohnehin neu analysiert.
+    try:
+        max_days = int(os.environ.get("AI_MAX_DAYS", "") or DEFAULT_MAX_DAYS)
+    except ValueError:
+        max_days = DEFAULT_MAX_DAYS
+    n_far = 0
+    if max_days < DEFAULT_MAX_DAYS:
+        grenze = datetime.date.today() + datetime.timedelta(days=max_days)
+        nah = []
+        for g in games:
+            try:
+                d = datetime.date.fromisoformat(str(g.get("d", "")))
+            except ValueError:
+                nah.append(g)          # ohne Datum lieber mitnehmen als verlieren
+                continue
+            if d <= grenze:
+                nah.append(g)
+            else:
+                n_far += 1
+        games = nah
+
+    if not games:
+        grund = []
+        if n_locked: grund.append(f"{n_locked} bereits eingefroren")
+        if n_far:    grund.append(f"{n_far} ausserhalb des Horizonts")
+        print(f"Woche {week}: nichts zu analysieren ({', '.join(grund) or 'keine Spiele'}) - 0 $ ausgegeben.")
+        return 0
+
+    valid_keys = {f"{g['w']}-{g['a']}-{g['h']}" for g in games}
+    gespart = n_locked + n_far
+    zusatz = f" | uebersprungen: {n_locked} eingefroren, {n_far} zu weit weg" if gespart else ""
+    print(f"Woche {week}: {len(games)} von {gesamt} Spielen werden recherchiert{zusatz}")
+
+    # Wenige Spiele brauchen keine sechs Websuchen - der teuerste Posten sind die
+    # Suchergebnisse im Input, nicht die generierten Tokens.
+    suchen = 2 if len(games) <= 3 else (4 if len(games) <= 8 else MAX_SEARCHES)
+
+    messages = [{"role": "user", "content": build_prompt(week, games, suchen)}]
+    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": suchen}]
     text = ""
     usage = {"in": 0, "out": 0, "searches": 0}
     found = {}

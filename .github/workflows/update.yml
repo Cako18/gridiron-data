@@ -1,27 +1,44 @@
 name: Daten-Update
 
+# Alle Zeiten UTC, durchgehend auf krumme Minuten. Zur vollen Stunde ist GitHubs
+# Scheduler ueberlastet: gemessen an diesem Repo lag "0 9 * * *" im Median 5,1 h
+# zurueck und nie unter 3,9 h, waehrend Laeufe auf :20/:30/:40 im Median 1,5 h
+# brauchten. Die alten Spieltagszeiten lagen ausserdem NACH dem Lock-Fenster
+# (2,5 h vor Anpfiff) - die Picks waren da schon eingefroren. Alle Laeufe sind
+# deshalb nach vorne gezogen, mit Puffer fuer mehrere Stunden Verzug.
 on:
   schedule:
-    # Taeglicher Hauptlauf (Training, Simulation, Report)
-    - cron: "0 9 * * *"
+    # Taeglicher Grundlauf (Training, Simulation, Report)
+    - cron: "13 6 * * *"
 
-    # --- Spieltagslaeufe: jeweils ca. 30-45 Min. vor den Anstosszeiten ---
-    # Die Zeiten decken Sommer- und Winterzeit ab (ET = UTC-4 bzw. UTC-5).
-    # Sonntag vor dem 13:00-ET-Fenster (19:00 dt. Zeit)
-    - cron: "20 16 * * 0"
-    - cron: "20 17 * * 0"
-    # Sonntag vor dem 16:05/16:25-ET-Fenster (22:00 dt. Zeit)
-    - cron: "30 19 * * 0"
-    - cron: "30 20 * * 0"
-    # Sonntagabendspiel 20:20 ET (02:20 dt. Zeit in der Nacht)
-    - cron: "40 23 * * 0"
-    - cron: "40 0 * * 1"
-    # Montagabendspiel
-    - cron: "40 23 * * 1"
-    - cron: "40 0 * * 2"
-    # Donnerstagabendspiel
-    - cron: "40 23 * * 4"
-    - cron: "40 0 * * 5"
+    # --- Sonntag ---
+    # vor dem Lock der 13:00-ET-Spiele (Anpfiff 17:00 UTC, Lock 14:30 UTC)
+    - cron: "19 9 * * 0"
+    # vor dem Lock der 16:05/16:25-ET-Spiele (Lock ca. 17:35 UTC)
+    - cron: "19 12 * * 0"
+    # vor dem Lock des Sonntagabendspiels (Anpfiff 00:20 UTC Mo, Lock 21:50 UTC)
+    - cron: "19 16 * * 0"
+
+    # --- Montag ---
+    # Ergebnisse der Sonntagsspiele einsammeln
+    - cron: "19 2 * * 1"
+    # vor dem Lock des Montagabendspiels (Anpfiff 00:15 UTC Di, Lock 21:45 UTC)
+    - cron: "19 15 * * 1"
+
+    # --- Dienstag: Ergebnis des Montagsspiels, damit die neue Woche aufgeht ---
+    - cron: "19 6 * * 2"
+
+    # --- Donnerstag: vor dem Lock des Donnerstagsspiels (Lock 21:50 UTC) ---
+    - cron: "19 15 * * 4"
+    # --- Freitag: Ergebnis des Donnerstagsspiels ---
+    - cron: "19 3 * * 5"
+
+  # Kernstueck gegen Verzug: sobald die KI-Kontextanalyse fertig ist, werden die
+  # Picks neu gerechnet. Damit stimmt die Reihenfolge - erst Kontext, dann
+  # Prognose - unabhaengig davon, wann GitHub die Crons tatsaechlich startet.
+  workflow_run:
+    workflows: ["KI-Kontextanalyse"]
+    types: [completed]
 
   workflow_dispatch: {}
 
