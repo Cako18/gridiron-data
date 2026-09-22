@@ -360,6 +360,7 @@ const TABS = [
   ["slip", "Tippschein"],
   ["duel", "Vegas-Duell"],
   ["rank", "Elo-Ranking"],
+  ["qb", "QB-Ranking"],
 ];
 
 function TabLeiste({ aktiv, setAktiv, fertig }) {
@@ -2017,6 +2018,163 @@ function EloRankingTab({ data, eloHist }) {
   );
 }
 
+/* --------------------------------------------------------- QB-Ranking */
+
+const epa = (v) => (v == null ? "–" : `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(3)}`);
+
+const QB_SORT = [
+  { id: "r", label: "Modellwert", feld: (e) => e.starter.r },
+  { id: "ausfall", label: "Ausfall", feld: (e) => (e.ausfall == null ? -9 : e.ausfall) },
+  { id: "form", label: "Form", feld: (e) => (e.starter.form == null ? -9 : e.starter.form) },
+];
+
+/** Was ein Ausfall des Starters kostet, in Klartext. */
+function ausfallText(e) {
+  if (e.ausfall == null) return "kein Vertreter im Depth Chart";
+  const pp = e.ausfall * 100;
+  if (pp < 0.5) return "Vertreter laut Modell nicht schwächer";
+  return `−${pp.toFixed(1)} Prozentpunkte Siegchance`;
+}
+
+function StilZeile({ stil }) {
+  if (!stil) return <span style={{ color: C.muted3 }}>keine Spiele in den letzten zwei Saisons</span>;
+  const teile = [
+    stil.quote != null && `Quote ${stil.quote.toFixed(1)} %`,
+    stil.cpoe != null && `CPOE ${stil.cpoe >= 0 ? "+" : ""}${stil.cpoe.toFixed(1)}`,
+    stil.ypa != null && `${stil.ypa.toFixed(1)} Yds/Pass`,
+    stil.lauf != null && `Laufanteil ${stil.lauf.toFixed(0)} %`,
+  ].filter(Boolean);
+  return <span>{teile.join(" · ")} <span style={{ color: C.muted3 }}>({stil.spiele} Spiele)</span></span>;
+}
+
+function QbDetail({ e }) {
+  const s = e.starter, b = e.backup;
+  const zeile = (k, v) => (
+    <div style={{ display: "flex", gap: 10, padding: "4px 0" }}>
+      <span style={{ width: 86, flex: "0 0 auto", color: C.muted3 }}>{k}</span>
+      <span style={{ color: C.text2, minWidth: 0 }}>{v}</span>
+    </div>
+  );
+  return (
+    <div style={{
+      marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.line}`,
+      fontFamily: FONT.mono, fontSize: 11, lineHeight: 1.5,
+    }}>
+      {zeile("Ausfall", <span style={{ color: e.ausfall >= 0.05 ? C.red : C.text2 }}>{ausfallText(e)}</span>)}
+      {zeile("Vertreter", b
+        ? <span>{b.n} · {epa(b.r)}{b.neu ? " · Ersatzwert, unter 3 Starts" : ` · ${b.starts} Starts`}</span>
+        : "–")}
+      {zeile("Form", s.form == null ? "–" : <span>{epa(s.form)} <span style={{ color: C.muted3 }}>je Spielzug, letzte 4 Einsätze</span></span>)}
+      {s.neu && s.roh != null ? zeile("Roh-Rating", <span>{epa(s.roh)} <span style={{ color: C.muted3 }}>(zählt erst ab 3 Starts)</span></span>) : null}
+      {zeile("Stil", <StilZeile stil={s.stil} />)}
+    </div>
+  );
+}
+
+function QbRankingTab({ data }) {
+  const [sortId, setSortId] = useState("r");
+  const [offen, setOffen] = useState(null);
+  const qbs = data.qbs;
+
+  const reihen = useMemo(() => {
+    if (!qbs) return [];
+    const s = QB_SORT.find((x) => x.id === sortId);
+    return Object.entries(qbs).map(([code, e]) => ({ code, e })).sort((a, b) => s.feld(b.e) - s.feld(a.e));
+  }, [qbs, sortId]);
+
+  if (!qbs) {
+    return (
+      <p style={{ padding: 24, fontFamily: FONT.mono, fontSize: 12, color: C.muted3 }}>
+        Das QB-Ranking erscheint mit dem nächsten Daten-Update.
+      </p>
+    );
+  }
+
+  const werte = reihen.map((r) => r.e.starter.r);
+  const lo = Math.min(...werte), hi = Math.max(...werte);
+
+  return (
+    <div style={{ padding: "14px 16px 40px" }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+        {QB_SORT.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSortId(s.id)}
+            style={{
+              padding: "6px 12px", borderRadius: 5, cursor: "pointer",
+              border: `1px solid ${s.id === sortId ? C.gold : C.line}`,
+              background: s.id === sortId ? "rgba(217,164,65,0.12)" : C.surface,
+              color: s.id === sortId ? C.gold : C.muted,
+              fontFamily: FONT.head, fontSize: 14, letterSpacing: "0.05em", textTransform: "uppercase",
+            }}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, margin: "0 0 10px", lineHeight: 1.6 }}>
+        <b style={{ color: C.text2, fontWeight: 500 }}>Modellwert</b>: Punkte, die der QB je Spielzug
+        erzeugt (Pass und Lauf, EPA), über die Karriere gewichtet &mdash; neuere Spiele zählen mehr.
+        Genau diese Zahl rechnet das Modell. Unter drei Starts gilt ein Ersatzwert von {epa(-0.06)}.
+        {" "}<b style={{ color: C.text2, fontWeight: 500 }}>Ausfall</b>: um wie viel die Siegchance
+        daheim gegen ein Durchschnittsteam sinkt, wenn der Vertreter spielt.
+        {" "}<b style={{ color: C.text2, fontWeight: 500 }}>Form</b> und Stil beschreiben nur &mdash;
+        sie stehen nicht im Modell. Antippen für Details.
+      </p>
+
+      {reihen.map((r, i) => {
+        const s = r.e.starter, auf = offen === r.code;
+        const rechts = sortId === "ausfall"
+          ? (r.e.ausfall == null ? "–" : `${(r.e.ausfall * 100).toFixed(1)}`)
+          : sortId === "form" ? epa(s.form) : epa(s.r);
+        return (
+          <div
+            key={r.code}
+            onClick={() => setOffen(auf ? null : r.code)}
+            style={{
+              padding: "9px 12px", cursor: "pointer",
+              background: C.surface, border: `1px solid ${auf ? C.line2 : C.line}`, borderRadius: 8, marginBottom: 5,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+              <span style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted3, width: 20, textAlign: "right" }}>
+                {i + 1}
+              </span>
+              <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: color(r.code) }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: C.text }}>
+                  {s.n}
+                  {s.neu ? (
+                    <span style={{
+                      marginLeft: 7, padding: "1px 5px", borderRadius: 3, fontFamily: FONT.mono, fontSize: 9,
+                      color: C.gold, border: `1px solid ${C.gold}`,
+                    }}>NEU</span>
+                  ) : null}
+                </div>
+                <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>
+                  {name(r.code)} · {s.starts} Starts
+                  {r.e.ausfall != null && r.e.ausfall >= 0.05 ? ` · Ausfall ${(r.e.ausfall * 100).toFixed(0)} Pp.` : ""}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <Balken anteil={hi === lo ? 1 : (s.r - lo) / (hi - lo)} farbe={color(r.code)} />
+                </div>
+              </div>
+              <span style={{ fontFamily: FONT.mono, fontSize: 14, color: C.text, minWidth: 58, textAlign: "right" }}>
+                {rechts}
+                {sortId === "ausfall" && r.e.ausfall != null && (
+                  <span style={{ fontSize: 9, color: C.muted3 }}> Pp.</span>
+                )}
+              </span>
+            </div>
+            {auf && <QbDetail e={r.e} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* --------------------------------------------------------- Vegas-Duell */
 
 function Kachel({ titel, wert, unter, farbe = C.text }) {
@@ -2222,7 +2380,7 @@ function VegasDuellTab({ data }) {
 function App() {
   const { status, data, model, ki, eloHist, err } = useGridironData();
   const [tab, setTab] = useState("sched");
-  const FERTIG = ["sched", "live", "match", "slip", "duel", "rank"];
+  const FERTIG = ["sched", "live", "match", "slip", "duel", "rank", "qb"];
 
   if (status === "laedt") {
     return (
@@ -2253,6 +2411,7 @@ function App() {
       {tab === "slip" && <TippscheinTab data={data} model={model} />}
       {tab === "duel" && <VegasDuellTab data={data} />}
       {tab === "rank" && <EloRankingTab data={data} eloHist={eloHist} />}
+      {tab === "qb" && <QbRankingTab data={data} />}
     </Rahmen>
   );
 }

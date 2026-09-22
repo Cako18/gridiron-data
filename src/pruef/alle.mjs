@@ -32,7 +32,7 @@ await page.goto("http://localhost:8099/src/pruef/index.html");
 await page.waitForSelector("nav button");
 console.log("KOPFZEILE:", (await page.evaluate(() => document.querySelector("header").innerText)).replace(/\n/g, " | "));
 
-for (const t of ["Spielplan", "Live", "Matchup", "Tippschein", "Vegas-Duell", "Elo-Ranking"]) {
+for (const t of ["Spielplan", "Live", "Matchup", "Tippschein", "Vegas-Duell", "Elo-Ranking", "QB-Ranking"]) {
   await page.getByRole("button", { name: t, exact: true }).click();
   await page.waitForTimeout(t === "Live" ? 1200 : 400);
   const n = await page.evaluate(() => ({
@@ -43,5 +43,5 @@ for (const t of ["Spielplan", "Live", "Matchup", "Tippschein", "Vegas-Duell", "E
   console.log(`  ${t.padEnd(12)} ${String(n.knoten).padStart(5)} Knoten, ${String(n.text).padStart(5)} Zeichen, ${n.svg} SVG`);
   await page.screenshot({ path: `pruef/tab_${t.toLowerCase().replace("-", "")}.png` });
 }
-console.log("\n" + (fehler.length ? "FEHLER:\n" + fehler.join("\n") : "Keine Konsolenfehler in allen sechs Tabs."));
+console.log("\n" + (fehler.length ? "FEHLER:\n" + fehler.join("\n") : "Keine Konsolenfehler in allen sieben Tabs."));
 await br.close(); srv.close();

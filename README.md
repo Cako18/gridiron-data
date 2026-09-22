@@ -17,6 +17,10 @@ Selbstlernendes NFL-Vorhersagesystem mit öffentlich nachprüfbarer Bilanz.
   Schlüsselspielern. Die Anpassungen fließen *nicht* in die offiziellen Picks;
   zum selben Zeitpunkt wird festgehalten, was das Modell mit ihnen getippt
   hätte, damit sich messen lässt, ob die Recherche etwas bringt.
+- **QB-Ranking:** alle 32 Starter nach dem Wert, mit dem das Modell rechnet,
+  dazu der Vertreter und was ein Ausfall kostet (Siegchance daheim gegen ein
+  Durchschnittsteam, einmal mit Starter, einmal mit Vertreter). Form und Stil
+  (Quote, CPOE, Laufanteil) stehen daneben, fließen aber nicht ins Modell.
 - **Depth Charts** mit Injury-Status, Live-Wahrscheinlichkeiten während der
   Spiele und ein Tippschein-Rechner mit Erwartungswert-Logik
 

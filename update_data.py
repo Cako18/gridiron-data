@@ -44,6 +44,31 @@ def lookup_qb_rating(qb_rating, name):
     return None
 
 
+def qb_wert(qb_rating, qb_starts, name):
+    """Wert eines Quarterbacks - nach GENAU der Regel, mit der trainiert wurde.
+
+    Im Training bekommt ein QB mit weniger als QB_MIN_STARTS Starts den
+    Ersatzwert QB_REPL, egal wie seine ein, zwei Spiele liefen. Die Vorhersage
+    muss dieselbe Regel anwenden, sonst sieht das Modell zur Laufzeit Werte,
+    die es im Training fuer solche Spieler nie gesehen hat. Bis September 2026
+    nahm die Pipeline hier das rohe Rating - behoben mit dem QB-Ranking.
+
+    modell: der Wert, mit dem gerechnet wird
+    roh:    das tatsaechliche Rating (None ohne ein einziges bewertetes Spiel)
+    """
+    roh, starts = None, 0
+    if isinstance(name, str) and name:
+        roh = lookup_qb_rating(qb_rating, name)
+        starts = qb_starts.get(name, 0)
+        if not starts:
+            ziel = norm_name(name)
+            starts = next((v for k, v in qb_starts.items() if norm_name(k) == ziel), 0)
+    neu = 1 if (roh is None or starts < QB_MIN_STARTS) else 0
+    return {"modell": round(QB_REPL if neu else roh, 4),
+            "roh": None if roh is None else round(roh, 4),
+            "starts": int(starts), "neu": neu}
+
+
 def norm_name(n):
     """Vereinheitlicht Schreibweisen: Punkte, Suffixe, Gross-/Kleinschreibung."""
     if not isinstance(n, str):
@@ -314,7 +339,7 @@ def main():
         if isinstance(g["away_qb_name"], str):
             starts[g["away_team"]][g["away_qb_name"]] += 1
 
-    depth_qb = {}
+    depth_qb, depth_qb2 = {}, {}
     dc_raw = fetch_csv(DEPTH_URL.format(y=current_season))
     if dc_raw is None or not len(dc_raw):
         dc_raw = fetch_csv(DEPTH_URL.format(y=last_played))
@@ -324,7 +349,11 @@ def main():
         for _, r in qbs.iterrows():
             if isinstance(r["player_name"], str) and r["team"] not in depth_qb:
                 depth_qb[r["team"]] = r["player_name"].strip()
-        print(f"  Starting-QB aus Depth Chart: {len(depth_qb)} Teams")
+        # Der Vertreter - fuer den Ausfallwert im QB-Ranking
+        for _, r in dc_raw[(dc_raw["pos_abb"] == "QB") & (dc_raw["pos_rank"] == 2)].iterrows():
+            if isinstance(r["player_name"], str) and r["team"] not in depth_qb2:
+                depth_qb2[r["team"]] = r["player_name"].strip()
+        print(f"  Starting-QB aus Depth Chart: {len(depth_qb)} Teams, Vertreter: {len(depth_qb2)}")
 
     team_qb = {}
     for t in sorted(set(games["home_team"]) | set(games["away_team"])):
@@ -336,14 +365,8 @@ def main():
                 continue
             name = cnt.most_common(1)[0][0]
             source = "vorsaison"
-        rating = lookup_qb_rating(qb_rating, name)
-        n_starts = qb_starts.get(name, 0)
-        if n_starts < QB_MIN_STARTS:
-            n_starts = max(n_starts, qb_starts.get(norm_name(name), 0))
-        team_qb[t] = {"name": name,
-                      "rating": round(rating if rating is not None else QB_REPL, 4),
-                      "new": 1 if (rating is None or n_starts < QB_MIN_STARTS) else 0,
-                      "src": source}
+        w = qb_wert(qb_rating, qb_starts, name)
+        team_qb[t] = {"name": name, "rating": w["modell"], "new": w["neu"], "src": source}
     changed = [t for t in team_qb
                if starts.get(t) and team_qb[t]["name"] != starts[t].most_common(1)[0][0]]
     if changed:
@@ -589,10 +612,19 @@ def main():
     kiadj = {}      # die KI wirkt nicht auf die offiziellen Picks - siehe ki_protokoll()
     print(f"  Duell-Stand: {duel['n']} abgerechnete Spiele, {duel['dis_n']} Uneinigkeiten")
 
+    # ---------- QB-Ranking ----------
+    # Pro Team Starter und Vertreter mit dem Modellwert, dazu, was ein Ausfall
+    # kostet: Siegwahrscheinlichkeit des Teams daheim gegen ein Liga-Durchschnitts-
+    # team, einmal mit Starter, einmal mit Vertreter. Form und Stil sind reine
+    # Beschreibung - CPOE, Quote und Laufanteil stehen NICHT im Modell.
+    qb_board = qb_rangliste(teams, team_qb, depth_qb2, qb_rating, qb_starts, qperf,
+                            pl if pframes else None, model_now, current_season)
+    print(f"  QB-Ranking: {len(qb_board)} Teams")
+
     out = {"generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
            "season": current_season, "last_result": str(games["gameday"].max()),
            "teams": teams, "schedule": sched, "proj": proj, "duel": duel,
-           "kiadj": kiadj, "picks": frozen_picks, "analysis": analysis, "archetypes": ARCHETYPES,
+           "kiadj": kiadj, "qbs": qb_board, "picks": frozen_picks, "analysis": analysis, "archetypes": ARCHETYPES,
            "lineups": lineups, "depth": depth, "line_moves": line_moves, "lineup_season": lineup_season,
            "arch_corr": ARCH_CORR, "edge_sources": EDGE_SOURCES}
     if not sanity_checks(out, model_now, sched, teams, proj):
@@ -1234,6 +1266,79 @@ def weekly_review(games_all, teams, model, season, duel_rows_path="data/vegas_du
                      "die Struktur der Fehler über mehrere Wochen dagegen viel. Interessant wird es, "
                      "wenn eine Stufe dauerhaft unter ihrem Backtest-Wert bleibt.")
     return lines
+
+def qb_rangliste(teams, team_qb, depth_qb2, qb_rating, qb_starts, qperf, pl,
+                 model, season):
+    """Export fuers QB-Ranking der Oberflaeche. Siehe Aufruf in main()."""
+    stil_df = None
+    if pl is not None and len(pl):
+        stil_df = pl[pl["season"] >= season - 1]
+    # letzte Auftritte je Spieler, chronologisch
+    verlauf = defaultdict(list)
+    for (sa, wo, nm), v in sorted(qperf.items()):
+        verlauf[nm].append(v)
+
+    def stil(name):
+        if stil_df is None:
+            return None
+        d = stil_df[stil_df["player_display_name"] == name]
+        if not len(d):
+            ziel = norm_name(name)
+            d = stil_df[stil_df["player_display_name"].map(norm_name) == ziel]
+        if not len(d):
+            return None
+        att = float(d["attempts"].sum())
+        car = float(d["carries"].sum())
+        sck = float(d["sacks_suffered"].sum())
+        out = {"spiele": int(len(d)), "att": int(att)}
+        if att > 0:
+            if "completions" in d:
+                out["quote"] = round(100 * float(d["completions"].fillna(0).sum()) / att, 1)
+            if "passing_cpoe" in d:
+                m = d["passing_cpoe"].notna() & (d["attempts"] > 0)
+                if m.any():
+                    out["cpoe"] = round(float((d.loc[m, "passing_cpoe"] * d.loc[m, "attempts"]).sum()
+                                              / d.loc[m, "attempts"].sum()), 1)
+            if "passing_yards" in d:
+                out["ypa"] = round(float(d["passing_yards"].fillna(0).sum()) / att, 1)
+        if att + sck + car > 0:
+            out["lauf"] = round(100 * car / (att + sck + car), 1)
+        return out
+
+    def spieler(name):
+        if not name:
+            return None
+        w = qb_wert(qb_rating, qb_starts, name)
+        v = verlauf.get(name)
+        if v is None:
+            ziel = norm_name(name)
+            v = next((x for k, x in verlauf.items() if norm_name(k) == ziel), [])
+        return {"n": name, "r": w["modell"], "roh": w["roh"], "starts": w["starts"],
+                "neu": w["neu"], "form": round(float(np.mean(v[-4:])), 4) if v else None,
+                "stil": stil(name)}
+
+    # Liga-Durchschnittsteam als Gegner: Mittelwert aller Merkmale
+    felder = ["elo", "off_epa", "def_epa", "cpoe", "inj", "qb", "qb_new"]
+    schnitt = {f: float(np.mean([t_[f] for t_ in teams.values()])) for f in felder}
+    schnitt["qb_new"] = 0
+    board = {}
+    for t in teams:
+        st = spieler(team_qb.get(t, {}).get("name"))
+        if st is None:
+            continue
+        bu = spieler(depth_qb2.get(t))
+        eintrag = {"starter": st, "backup": bu, "ausfall": None}
+        if bu is not None:
+            g = {"h": t, "a": "_LIGA", "w": 0, "hr": 7, "ar": 7, "t": ""}
+            mit = {t: dict(teams[t]), "_LIGA": schnitt}
+            ohne = {t: dict(teams[t], qb=bu["r"], qb_new=bu["neu"]), "_LIGA": schnitt}
+            p1, p2 = predict_game(g, mit, model), predict_game(g, ohne, model)
+            if p1 is not None and p2 is not None:
+                eintrag["p_mit"] = round(p1, 4)
+                eintrag["ausfall"] = round(p1 - p2, 4)
+        board[t] = eintrag
+    return board
+
 
 def predict_game(g, teams, model, adj_home=0, adj_away=0):
     h, a = teams.get(g["h"]), teams.get(g["a"])

@@ -57,7 +57,8 @@ das Bundle zur Laufzeit `React is not defined`.
 | Skript | Prueft | Wann |
 |---|---|---|
 | `pruef/kreuzprobe.py` | Rechnet die Oberflaeche jedes Spiel exakt wie `predict_game()` der Pipeline? 4000 Zufallsspiele, kuenstliche Koeffizienten fuer alle elf Merkmale. | nach jeder Aenderung an `features()` oder `predict_game()` |
-| `pruef/alle.mjs` | Rendern alle sechs Tabs ohne Konsolenfehler? | vor jedem scharfen Build |
+| `pruef/alle.mjs` | Rendern alle sieben Tabs ohne Konsolenfehler? | vor jedem scharfen Build |
+| `pruef/qb.mjs` | QB-Ranking mit Daten und mit altem Export ohne `qbs` | nach Aenderungen am QB-Tab |
 | `pruef/vergleich2.mjs` | Zeigen alte und neue Seite bei gleichem Feed dasselbe? | bis zur Umstellung |
 | `../live_test.py` | Trifft die Live-Formel echte Spielverlaeufe? | nach Aenderungen an `liveWP()` |
 
@@ -93,6 +94,7 @@ Die App liest zwei Dateien von `raw.githubusercontent.com`:
 | `teams{}` | `elo`, `off_epa`, `def_epa`, `cpoe`, `inj`, `qb`, `qb_new`, `qb_name` |
 | `picks{}` | eingefrorene Prognosen: `pick`, `p`, `vp`, `pm`, `src`, `st` (`fix` = festgeschrieben) |
 | `analysis{}` | je Spiel: `tags`, `sd`, `conf`, `edge`, `arch_hit` |
+| `qbs{}` | je Team `starter` und `backup` (`n` Name, `r` Modellwert, `roh` Rohwert, `starts`, `neu`, `form`, `stil`), `ausfall` = Siegchance mit minus ohne Starter, `p_mit` |
 | `duel{}` | Bilanz gegen den Markt, Kalibrierung, CLV, `ki` = Zwischenstand Modell gegen Modell+KI |
 | `line_moves{}`, `depth{}`, `lineups{}`, `proj{}` | Zusatzdaten der uebrigen Tabs |
 
@@ -129,6 +131,13 @@ die logistische Regression, nachgerechnet in `predictHome()`.
    Ergebnis hin. Bei zehn Spielen sieht "gesagt 55 %, real 75 %"
    dramatisch aus und ist p = 0,25 - also nichts. Eine Seite, die solche
    Zahlen hervorhebt, erzieht ihren Leser zu Fehlschluessen.
+
+8. **Training und Vorhersage muessen dieselbe Regel sehen.** Im Training
+   bekommt ein QB mit weniger als drei Starts den Ersatzwert -0,06, egal wie
+   seine ersten Spiele liefen. Die Pipeline nahm fuer die Vorhersage bis
+   September 2026 trotzdem sein rohes Rating - ein Wert, den das Modell fuer
+   solche Spieler nie gesehen hatte. Seitdem rechnen beide ueber
+   `qb_wert()`. Das QB-Ranking zeigt den Rohwert nur zusaetzlich an.
 
 ## Altbestand
 
