@@ -11,8 +11,8 @@ gerendert, ohne Konsolenfehler.
 
 | Tab | Inhalt |
 |---|---|
-| Spielplan | Wochenwahl, Wochenvorschau, Bilanz gegen Vegas, Spiele nach Tagen |
-| Live | ESPN-Feed alle 45 s, WP-Kurve, Kipppunkt, Vorbereitungsspiele ohne Prognose |
+| Spielplan | Wochenwahl, Wochenvorschau, Bilanz gegen Vegas, Markierungen BANK / Muenzwurf / Gegen den Markt mit Legende |
+| Live | ESPN-Feed alle 45 s, WP-Balken und -Kurve, Kipp-Hinweis, Fuehrungswechsel, Tipp-Haekchen, kommende Spiele aus Feed und Spielplan, Vorbereitungsspiele als Mechaniktest |
 | Matchup | Prognose, Edge-Attribution, KI-Kontext, Marktbewegung, Ligavergleich, Spieltyp, beide Depth Charts |
 | Tippschein | EV je Tipp, Risikomischung, Poisson-Binomial-Verteilung, Gesamtquote |
 | Vegas-Duell | Bilanz, CLV, Kalibrierung mit Signifikanztest, Merkmalsguete, bester Call |
@@ -26,9 +26,16 @@ gerendert, ohne Konsolenfehler.
 | Aufstellungs-Duell | Die Pipeline fuellt `lineups` nur fuer zwei Teams. Erst muss `update_data.py` alle 32 liefern. |
 | Archetyp-Korrelationen | `Saisonstart` korreliert mit 0,72 zu `Heimfavorit` und 0,70 zu `Enges Spiel` - weil die Marke frueh in der Saison auf jedes Spiel zutrifft. Ein Artefakt, keine Erkenntnis. |
 
-**Live laeuft weiterhin `app26.js`.** Umgestellt wird erst nach einem
-Seite-an-Seite-Vergleich am echten Spieltag: der Live-Tab ist bisher nur
-gegen einen nachgebauten ESPN-Feed geprueft, nicht gegen den echten.
+**Live laeuft weiterhin `app26.js`.** Der Seite-an-Seite-Vergleich mit
+identischem Feed (`pruef/vergleich2.mjs`) ist bestanden: Live-Balken,
+Kipp-Hinweis, Vorbereitungsspiel, Fuehrungswechsel und alle Vorab-Prognosen
+stimmen mit dem alten Bundle ueberein. Offen ist nur noch der Blick auf den
+echten ESPN-Feed an einem Spieltag - danach wird `index.html` umgestellt.
+
+Zusaetzlich prueft `pruef/rechnung.cjs` den Rechenkern direkt gegen die
+Pipeline: fuer alle noch nicht eingefrorenen Picks muss `predictHome()` die
+Wahrscheinlichkeit aus `update_data.py` treffen. Stand 22.09.: 16 von 16,
+groesste Abweichung 0,005 Prozentpunkte (Rundung).
 
 ## Bauen
 
@@ -93,7 +100,14 @@ die logistische Regression, nachgerechnet in `predictHome()`.
    gleich aus, weil die Absolutwerte nah beieinander liegen. Gegen die
    Liga gemessen sind das Rang 30 und Rang 16 - und genau das ist die
    Information. Der Rang steht deshalb an jedem Wert.
-4. **Rauschen wird als Rauschen ausgewiesen.** Die Kalibrierungstabelle
+4. **Keine Merkmale auf 0 setzen, weil sie "wohl egal" sind.** Der erste
+   Entwurf liess die beiden Reisemerkmale weg. Bei Seattle in Washington
+   lag die Vorab-Prognose dadurch 5,7 Punkte daneben. Aufgefallen ist es
+   erst im Vergleich mit dem alten Bundle.
+5. **Der Tipp eines beendeten Spiels ist der eingefrorene Pick.** Die alte
+   Live-Seite rechnete ihn nachtraeglich mit dem heutigen Modell aus -
+   derselbe Rueckschaufehler, der einmal die Wochenbilanz geschoent hat.
+6. **Rauschen wird als Rauschen ausgewiesen.** Die Kalibrierungstabelle
    rechnet je Band einen zweiseitigen Binomialtest und schreibt das
    Ergebnis hin. Bei zehn Spielen sieht "gesagt 55 %, real 75 %"
    dramatisch aus und ist p = 0,25 - also nichts. Eine Seite, die solche
@@ -108,3 +122,25 @@ die logistische Regression, nachgerechnet in `predictHome()`.
 
 **Regel fuer die Zukunft: die Quelle gehoert ins Repo, nicht nur das
 Bundle.**
+
+## Offener Befund: Die Live-Kurve startet zu nah an 50 %
+
+Beim Anpfiff ist nichts passiert, die Live-Wahrscheinlichkeit muesste also
+genau der Vorab-Prognose entsprechen. Sie tut es nicht - in der alten wie
+der neuen Fassung:
+
+| Spiel | Modell vorab | Live-Kurve beim Anpfiff |
+|---|---|---|
+| ATL @ GB | 77,5 % | 70,5 % |
+| LAC @ BUF | 85,5 % | 78,0 % |
+| LA @ SF | 67,7 % | 62,7 % |
+
+Ursache ist die Umrechnung der Vorab-Wahrscheinlichkeit in einen erwarteten
+Punkteabstand, `16 * log10(p / (1 - p))`. Konsistent waere
+`15,94 * Phi^-1(p)` (15,94 = Streuung beim Anpfiff). Nicht geaendert, weil
+die uebrigen Konstanten an 43.671 echten Spielzustaenden geeicht sind und
+die Eichung diesen Faktor womoeglich mitgetragen hat. Vor einer Aenderung
+gehoert beides gegen nflverse-Play-by-Play-Daten geprueft.
+
+Die Markierungen, Vorab-Prognosen, Tippschein und Bilanz sind davon nicht
+betroffen - nur die Live-Kurve.

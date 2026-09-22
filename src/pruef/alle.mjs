@@ -1,9 +1,13 @@
 import { chromium } from "playwright";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
-const srv = createServer((q, r) => { const p = q.url === "/" ? "/src/pruef/index.html" : q.url;
-  try { r.writeHead(200, { "content-type": p.endsWith(".js") ? "text/javascript" : "text/html" }); r.end(readFileSync(".." + p)); }
-  catch { r.writeHead(404); r.end(); } });
+const srv = createServer((q, r) => {
+  const p = q.url === "/" ? "/src/pruef/index.html" : q.url.split("?")[0];
+  let body;
+  try { body = readFileSync(".." + p); } catch { r.writeHead(404); r.end(); return; }
+  r.writeHead(200, { "content-type": p.endsWith(".js") ? "text/javascript" : "text/html" });
+  r.end(body);
+});
 await new Promise((r) => srv.listen(8099, r));
 const br = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await br.newPage({ viewport: { width: 430, height: 1600 } });

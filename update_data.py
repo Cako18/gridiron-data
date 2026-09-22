@@ -1270,18 +1270,27 @@ def write_history_and_report(line_moves_report, teams, sched, season, model, pro
     if week is not None:
         lines += [f"## Woche {week} – Picks", ""]
         cur_day = None
-        bank = ups = 0
+        bank = ups = gegen = 0
         for g in [g for g in upcoming if g["w"] == week]:
             p = predict_game(g, teams, model)
             if p is None:
                 continue
             fav, prob = (g["h"], p) if p >= 0.5 else (g["a"], 1 - p)
             dog = g["a"] if fav == g["h"] else g["h"]
+            # Einordnung wie auf der Seite. Gemessen mit markttest_voll.py an 1718
+            # ungesehenen Spielen 2020-2026: BANK 75,4 %, Muenzwurf 57,8 %, und
+            # wenn das Modell einen anderen Sieger sieht als der Markt, nur 41,2 %.
+            # Frueher hiessen die Muenzwuerfe hier "Upset-Alarm" - das waren sie nie.
+            markt_fav = None
+            if g.get("mh") and g.get("ma"):
+                markt_fav = g["h"] if 1 / g["mh"] > 1 / g["ma"] else g["a"]
             tier = ""
-            if prob >= 0.70:
+            if markt_fav and markt_fav != fav:
+                tier = " **[GEGEN DEN MARKT - historisch hatte der Markt 59 % recht]**"; gegen += 1
+            elif prob >= 0.70:
                 tier = " **[BANK]**"; bank += 1
             elif prob < 0.58:
-                tier = " **[UPSET-ALARM]**"; ups += 1
+                tier = " **[MÜNZWURF]**"; ups += 1
             if g["d"] != cur_day:
                 lines.append(f"**{g['d']}**")
                 cur_day = g["d"]
@@ -1297,7 +1306,8 @@ def write_history_and_report(line_moves_report, teams, sched, season, model, pro
                     arrow = "▲" if shown > prob + 0.001 else ("▼" if shown < prob - 0.001 else "•")
                     ai_note = f" · KI {arrow} {shown*100:.0f} %"
             lines.append(f"- {NAMES.get(fav, fav)} über {NAMES.get(dog, dog)} – {prob*100:.0f} %{tier}{ai_note}")
-        lines += ["", f"{bank} BANK-Picks (historisch ~75 % Trefferquote) · {ups} Upset-Alarme (Münzwürfe)", ""]
+        lines += ["", f"{bank} BANK-Picks (gemessen 75,4 %) · {ups} Münzwürfe (57,8 %) · "
+                      f"{gegen} gegen den Markt (Modell dort nur 41,2 % - im Zweifel dem Markt folgen)", ""]
     else:
         lines += ["Keine offenen Spiele – Saison beendet.", ""]
     lines += ["## Elo-Bewegungen (letzte 7 Tage)", ""]
