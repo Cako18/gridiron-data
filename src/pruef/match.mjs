@@ -10,6 +10,7 @@ const srv = createServer((req, res) => {
 await new Promise((r) => srv.listen(8099, r));
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await browser.newPage({ viewport: { width: 430, height: 1500 } });
+await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.fulfill({ status: 200, contentType: "text/css", body: "" })); // Schriften: im Test-Container gesperrt
 const fehler = [];
 page.on("pageerror", (e) => fehler.push("pageerror: " + e.message));
 page.on("console", (m) => { if (m.type() === "error" && !m.text().includes("favicon")) fehler.push("console: " + m.text()); });
@@ -23,11 +24,12 @@ await page.getByRole("button", { name: "MATCHUP" }).click();
 await page.waitForTimeout(400);
 
 // Woche 3 waehlen: dort ist "Verletzungen" Haupttreiber mit niedrigem Vertrauen
-await page.getByRole("button", { name: "3", exact: true }).click();
+await page.getByRole("button", { name: "Woche 3", exact: true }).first().click();
 await page.waitForTimeout(300);
-const opts = await page.$$eval("select option", (o) => o.map((x) => x.textContent));
+// Spielauswahl ist seit dem TV-Look eine Chip-Leiste; der volle Name steht im aria-label
+const opts = await page.$$eval("button[aria-label*=' bei ']", (o) => o.map((x) => x.getAttribute("aria-label")));
 const i = opts.findIndex((t) => t.includes("Atlanta"));
-if (i >= 0) { await page.selectOption("select", String(i)); await page.waitForTimeout(400); }
+if (i >= 0) { await page.click(`button[aria-label="${opts[i]}"]`); await page.waitForTimeout(400); }
 
 console.log("Spiele in Woche 3:", opts.length, "| gewaehlt:", opts[i >= 0 ? i : 0]);
 console.log("\n" + (await page.evaluate(() => document.body.innerText)).split("\n").slice(8).join("\n").slice(600, 1500));

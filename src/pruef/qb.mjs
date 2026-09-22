@@ -11,6 +11,7 @@ await new Promise((r) => srv.listen(8099, r));
 const br = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 for (const datei of ["pruef/app_data_ausfall.json", "pruef/app_data.json", "ohne qbs"]) {
   const page = await br.newPage({ viewport: { width: 390, height: 2600 } });
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.fulfill({ status: 200, contentType: "text/css", body: "" })); // Schriften: im Test-Container gesperrt
   const fehler = [];
   page.on("pageerror", (e) => fehler.push(e.message));
   page.on("console", (m) => { if (m.type() === "error" && !m.text().includes("favicon")) fehler.push(m.text()); });

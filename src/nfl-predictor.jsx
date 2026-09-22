@@ -50,8 +50,8 @@ const color = (c) => (TEAM[c] || [, "#8C94A8"])[1];
 /* --------------------------------------------------------------- Palette */
 
 const C = {
-  bg: "#0A0D16", surface: "#131A2B", surface2: "#1A2033",
-  line: "#26304A", line2: "#3A4560",
+  bg: "#070A12", surface: "#10172A", surface2: "#161F36",
+  line: "#222C46", line2: "#3A4668",
   text: "#F0EDE2", text2: "#C9CEDB", muted: "#8C94A8", muted3: "#5C6478",
   gold: "#D9A441", red: "#E0685C", green: "#8FCB9B", blue: "#7FB3D5",
 };
@@ -239,6 +239,72 @@ function tageHer(iso) {
   return Math.floor((Date.now() - d.getTime()) / 864e5);
 }
 
+/* ------------------------------------------------------ Broadcast-Optik */
+
+/** Teamfarbe, aufgehellt, falls sie auf dunklem Grund untergeht (HOU, NE ...). */
+function hell(hex, min = 0.34) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  if (lum >= min) return hex;
+  const f = (min - lum) / (1 - lum);
+  r = Math.round(r + (255 - r) * f); g = Math.round(g + (255 - g) * f); b = Math.round(b + (255 - b) * f);
+  return `rgb(${r},${g},${b})`;
+}
+const farbe = (c) => hell(color(c));
+const alpha = (hex, a) => {
+  const n = parseInt(color(hex).slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+};
+/** "Green Bay Packers" -> ["Green Bay", "Packers"] */
+const namensTeile = (c) => {
+  const n = name(c), i = n.lastIndexOf(" ");
+  return i < 0 ? ["", n] : [n.slice(0, i), n.slice(i + 1)];
+};
+const ZEIT_DE = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", weekday: "short", hour: "2-digit", minute: "2-digit" });
+const TAG_DE = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", weekday: "long", day: "numeric", month: "long" });
+const TAGKEY_DE = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" });
+
+/** Das Team-"Logo": Kuerzel weiss auf Vereinsfarbe. */
+function TeamChip({ code, gross = 38 }) {
+  return (
+    <span style={{
+      width: gross, height: gross, flex: "0 0 auto", borderRadius: 7,
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      background: `linear-gradient(145deg, ${color(code)} 0%, ${alpha(code, 0.75)} 100%)`,
+      boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.14), 0 2px 10px ${alpha(code, 0.35)}`,
+      fontFamily: FONT.head, fontWeight: 800, fontSize: gross * 0.4, letterSpacing: "0.02em",
+      color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.45)",
+    }}>
+      {code}
+    </span>
+  );
+}
+
+function GlobalStil() {
+  useEffect(() => {
+    if (document.getElementById("cako-fonts")) return;
+    const l = document.createElement("link");
+    l.id = "cako-fonts"; l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap";
+    document.head.appendChild(l);
+  }, []);
+  return (
+    <style>{`
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      body { margin: 0; }
+      .cako-scroll { scrollbar-width: none; }
+      .cako-scroll::-webkit-scrollbar { display: none; }
+      .cako-karte { transition: transform .15s ease, border-color .15s ease; }
+      @media (hover: hover) { .cako-karte:hover { transform: translateY(-2px); border-color: ${C.line2} !important; } }
+      .cako-raster { display: grid; grid-template-columns: 1fr; gap: 10px; }
+      @media (min-width: 760px) { .cako-raster { grid-template-columns: 1fr 1fr; } }
+      @keyframes cako-rein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      .cako-rein { animation: cako-rein .35s ease both; }
+    `}</style>
+  );
+}
+
 function Kopf({ generated, ki, woche }) {
   // Der KI-Kontext war schon einmal sieben Tage alt, ohne dass es jemand sah.
   // Deshalb steht sein Alter jetzt im Kopf, mit Farbe: gruen frisch, gold
@@ -257,30 +323,51 @@ function Kopf({ generated, ki, woche }) {
     : alter > 3 ? C.gold : C.green;
 
   return (
-    <header style={{ borderBottom: `1px solid ${C.line}`, padding: "20px 16px 12px" }}>
-      <div style={{ maxWidth: 760, margin: "0 auto" }}>
-        <h1 style={{
-          margin: 0, fontFamily: FONT.head, fontSize: 30, letterSpacing: "0.04em",
-          textTransform: "uppercase", color: C.text, fontWeight: 600,
-        }}>
-          Cako&rsquo;s <span style={{ color: C.gold }}>NFL World</span>
-        </h1>
+    <header style={{
+      position: "relative", overflow: "hidden",
+      background: `radial-gradient(120% 140% at 0% 0%, rgba(217,164,65,0.18) 0%, rgba(7,10,18,0) 55%),
+                   radial-gradient(90% 120% at 100% 0%, rgba(224,104,92,0.14) 0%, rgba(7,10,18,0) 60%), ${C.bg}`,
+    }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "22px 16px 14px" }}>
+        <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
+          <span style={{
+            background: C.gold, color: "#12100A", padding: "4px 14px 2px 12px",
+            clipPath: "polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%)",
+            fontFamily: FONT.head, fontWeight: 800, fontStyle: "italic", fontSize: 30,
+            letterSpacing: "0.02em", textTransform: "uppercase", lineHeight: 1.1,
+          }}>Cako&rsquo;s</span>
+          <span style={{
+            marginLeft: -6, padding: "4px 16px 2px 16px", background: "#F4F1E8", color: "#0B0F1A",
+            clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)",
+            fontFamily: FONT.head, fontWeight: 800, fontStyle: "italic", fontSize: 30,
+            letterSpacing: "0.02em", textTransform: "uppercase", lineHeight: 1.1,
+          }}>NFL World</span>
+        </div>
         <div style={{
-          display: "flex", gap: 14, flexWrap: "wrap", marginTop: 5,
-          fontFamily: FONT.mono, fontSize: 10, color: C.muted3,
+          display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12,
+          fontFamily: FONT.mono, fontSize: 10, color: C.muted,
         }}>
-          <span>{generated ? `Daten ${new Date(generated).toLocaleString("de-DE")}` : " "}</span>
+          {woche && (
+            <span style={{ padding: "3px 8px", borderRadius: 4, background: C.surface2, color: C.text,
+                           fontFamily: FONT.head, fontSize: 13, fontWeight: 700, letterSpacing: "0.08em" }}>
+              WOCHE {woche}
+            </span>
+          )}
+          <span style={{ padding: "4px 8px", borderRadius: 4, border: `1px solid ${C.line}` }}>
+            {generated ? `Daten ${new Date(generated).toLocaleString("de-DE", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}` : " "}
+          </span>
           {ki && (
-            <span style={{ color: kiFarbe }}>
-              KI-Kontext {alter === 0 ? "heute" : alter === 1 ? "gestern" : `vor ${alter} Tagen`}
-              {" · "}Woche {ki.week}
+            <span style={{ padding: "4px 8px", borderRadius: 4, border: `1px solid ${C.line}`, color: kiFarbe }}>
+              KI {alter === 0 ? "heute" : alter === 1 ? "gestern" : `vor ${alter} Tagen`}
+              {" · "}W{ki.week}
               {ki.coverage ? ` · ${ki.coverage}` : ""}
               {falscheWoche && " · veraltet"}
-              {vorwoche && ` · Woche ${woche} folgt Do/So`}
+              {vorwoche && ` · W${woche} folgt Do/So`}
             </span>
           )}
         </div>
       </div>
+      <div style={{ height: 3, background: `linear-gradient(90deg, ${C.gold}, ${C.red} 60%, rgba(224,104,92,0))` }} />
     </header>
   );
 }
@@ -316,37 +403,45 @@ function Wochenvorschau({ data, model, ki, woche }) {
 
   if (!punkte) return null;
 
+  const kachel = (zahl, text, f = C.text) => (
+    <div style={{ flex: "1 1 0", minWidth: 0, padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.line}` }}>
+      <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 28, lineHeight: 1, color: f }}>{zahl}</div>
+      <div style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted, marginTop: 5, letterSpacing: "0.04em", textTransform: "uppercase" }}>{text}</div>
+    </div>
+  );
+
   return (
-    <div style={{
-      margin: "0 16px 14px", padding: "12px 14px", borderRadius: 8,
-      background: C.surface2, border: `1px solid ${C.line}`,
+    <div className="cako-rein" style={{
+      margin: "8px 16px 14px", padding: "14px", borderRadius: 12,
+      background: `linear-gradient(135deg, ${C.surface2} 0%, ${C.surface} 100%)`,
+      border: `1px solid ${C.line}`, borderLeft: `4px solid ${C.gold}`,
     }}>
       <div style={{
-        fontFamily: FONT.head, fontSize: 14, letterSpacing: "0.08em",
-        textTransform: "uppercase", color: C.text2, marginBottom: 7,
+        fontFamily: FONT.head, fontSize: 18, fontWeight: 800, fontStyle: "italic",
+        letterSpacing: "0.04em", textTransform: "uppercase", color: C.text, marginBottom: 10,
       }}>
-        Woche {woche} &ndash; Vorschau
+        Woche {woche} <span style={{ color: C.gold }}>&middot; Vorschau</span>
       </div>
-      <div style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted, lineHeight: 1.9 }}>
-        {punkte.anzahl} offene Spiele.{" "}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        {kachel(punkte.anzahl, "offene Spiele")}
+        {kachel(punkte.gegen.length, "gegen den Markt", punkte.gegen.length ? C.red : C.text)}
+        {punkte.sicher && kachel(pct(punkte.sicher.p), `sicherster: ${punkte.sicher.tipp}`, C.green)}
+      </div>
+      <div style={{ fontFamily: FONT.body, fontSize: 13, color: C.text2, lineHeight: 1.6 }}>
         {punkte.gegen.length === 0
-          ? "Das Modell ist sich diese Woche mit dem Markt ueber jeden Sieger einig."
-          : `Gegen den Markt in ${punkte.gegen.length} ${punkte.gegen.length === 1 ? "Spiel" : "Spielen"}: ` +
-            punkte.gegen.map((x) => `${x.tipp} statt ${x.marktTipp}`).join(", ") +
-            `. Vorsicht: In solchen Faellen lag historisch der Markt in ` +
-            `${(100 - BACKTEST.gegen.real).toFixed(0)} % richtig.`}
-        {punkte.sicher && (
-          <><br />Sicherster Tipp: <span style={{ color: C.text2 }}>{name(punkte.sicher.tipp)}</span>{" "}
-            mit {pct(punkte.sicher.p)}.</>
-        )}
+          ? "Das Modell ist sich diese Woche mit dem Markt über jeden Sieger einig."
+          : <>Gegen den Markt: <b style={{ color: C.text }}>{punkte.gegen.map((x) => `${x.tipp} statt ${x.marktTipp}`).join(", ")}</b>.{" "}
+              <span style={{ color: C.muted }}>Historisch lag in solchen Fällen der Markt zu {(100 - BACKTEST.gegen.real).toFixed(0)} % richtig.</span></>}
         {punkte.knapp.length > 0 && (
-          <><br />Muenzwurf-Kandidaten: {punkte.knapp.slice(0, 3)
-            .map((x) => `${x.g.a} bei ${x.g.h} (${pct(x.p)})`).join(", ")}.</>
+          <div style={{ marginTop: 4 }}>
+            Münzwürfe: <span style={{ color: C.text }}>{punkte.knapp.slice(0, 3).map((x) => `${x.g.a} @ ${x.g.h}`).join(" · ")}</span>
+          </div>
         )}
         {punkte.kiTreffer && (
-          <><br /><span style={{ color: C.gold }}>Groesste KI-Anpassung:</span>{" "}
-            {punkte.kiTreffer[0].split("-").slice(1).join(" bei ")} &mdash;{" "}
-            {punkte.kiTreffer[1].summary}</>
+          <div style={{ marginTop: 4 }}>
+            <span style={{ color: C.gold }}>KI:</span>{" "}
+            {punkte.kiTreffer[0].split("-").slice(1).join(" @ ")} &mdash; {punkte.kiTreffer[1].summary}
+          </div>
         )}
       </div>
     </div>
@@ -366,52 +461,59 @@ const TABS = [
 function TabLeiste({ aktiv, setAktiv, fertig }) {
   return (
     <nav style={{
-      display: "flex", gap: 4, overflowX: "auto", padding: "10px 16px",
-      borderBottom: `1px solid ${C.line}`, maxWidth: 760, margin: "0 auto",
+      position: "sticky", top: 0, zIndex: 20,
+      background: "rgba(7,10,18,0.86)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+      borderBottom: `1px solid ${C.line}`,
     }}>
-      {TABS.map(([id, label]) => {
-        const an = id === aktiv, kann = fertig.includes(id);
-        return (
-          <button
-            key={id}
-            onClick={() => kann && setAktiv(id)}
-            disabled={!kann}
-            title={kann ? undefined : "noch nicht neu aufgebaut"}
-            style={{
-              flex: "0 0 auto", padding: "7px 13px", borderRadius: 6, cursor: kann ? "pointer" : "not-allowed",
-              border: `1px solid ${an ? C.gold : C.line}`,
-              background: an ? "rgba(217,164,65,0.12)" : "transparent",
-              color: an ? C.gold : kann ? C.text2 : C.muted3,
-              opacity: kann ? 1 : 0.45,
-              fontFamily: FONT.head, fontSize: 15, letterSpacing: "0.05em", textTransform: "uppercase",
-            }}
-          >
-            {label}
-          </button>
-        );
-      })}
+      <div className="cako-scroll" style={{ display: "flex", gap: 2, overflowX: "auto", maxWidth: 1100, margin: "0 auto", padding: "0 10px" }}>
+        {TABS.map(([id, label]) => {
+          const an = id === aktiv, kann = fertig.includes(id);
+          return (
+            <button
+              key={id}
+              onClick={() => kann && setAktiv(id)}
+              disabled={!kann}
+              style={{
+                flex: "0 0 auto", padding: "13px 12px 11px", cursor: kann ? "pointer" : "not-allowed",
+                border: "none", background: "transparent",
+                borderBottom: `3px solid ${an ? C.gold : "transparent"}`,
+                color: an ? C.text : kann ? C.muted : C.muted3,
+                fontFamily: FONT.head, fontWeight: an ? 700 : 600, fontSize: 16,
+                letterSpacing: "0.06em", textTransform: "uppercase",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 }
 
-function WochenWahl({ wochen, woche, setWoche }) {
+function WochenWahl({ wochen, woche, setWoche, rand = "16px 16px 6px" }) {
   return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "14px 16px 4px" }}>
-      {wochen.map((w) => (
-        <button
-          key={w}
-          onClick={() => setWoche(w)}
-          style={{
-            width: 36, height: 30, borderRadius: 5, cursor: "pointer",
-            border: `1px solid ${w === woche ? C.gold : C.line}`,
-            background: w === woche ? "rgba(217,164,65,0.12)" : C.surface,
-            color: w === woche ? C.gold : C.muted,
-            fontFamily: FONT.mono, fontSize: 12,
-          }}
-        >
-          {w}
-        </button>
-      ))}
+    <div className="cako-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", padding: rand }}>
+      {wochen.map((w) => {
+        const an = w === woche;
+        return (
+          <button
+            key={w}
+            aria-label={`Woche ${w}`}
+            onClick={() => setWoche(w)}
+            style={{
+              flex: "0 0 auto", minWidth: 44, height: 44, borderRadius: 8, cursor: "pointer",
+              border: `1px solid ${an ? C.gold : C.line}`,
+              background: an ? C.gold : C.surface,
+              color: an ? "#12100A" : C.muted,
+              fontFamily: FONT.head, fontWeight: 700, lineHeight: 1,
+            }}
+          >
+            <div style={{ fontSize: 9, letterSpacing: "0.1em", opacity: 0.8 }}>WO</div>
+            <div style={{ fontSize: 18 }}>{w}</div>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -458,7 +560,7 @@ function markierung(tipp, p, marktTipp) {
 function Markierungslegende({ duel }) {
   return (
     <details style={{
-      margin: "0 16px 12px", padding: "9px 13px", borderRadius: 8,
+      margin: "0 16px 12px", padding: "10px 14px", borderRadius: 10,
       background: C.surface, border: `1px solid ${C.line}`,
     }}>
       <summary style={{ cursor: "pointer", fontFamily: FONT.mono, fontSize: 11, color: C.muted }}>
@@ -490,7 +592,7 @@ function Markierungslegende({ duel }) {
   );
 }
 
-/** Ein Spiel: Teams, Modellprognose, Markt, Status. */
+/** Ein Spiel als Scoreboard-Karte: Teams, Modellprognose, Markt, Status. */
 function SpielZeile({ game, pick, pModel, pMarkt }) {
   const gespielt = game.hs !== null && game.as !== null;
   const sieger = gespielt ? (game.hs > game.as ? game.h : game.as > game.hs ? game.a : null) : null;
@@ -500,69 +602,110 @@ function SpielZeile({ game, pick, pModel, pMarkt }) {
   const tipp = pick ? pick.pick : pModel === null ? null : pModel >= 0.5 ? game.h : game.a;
   const p = pick ? pick.p : pModel === null ? null : Math.max(pModel, 1 - pModel);
   const marktTipp = pick && pick.vp ? pick.vp : pMarkt === null ? null : pMarkt >= 0.5 ? game.h : game.a;
+  const pHeim = tipp === null || p === null ? null : tipp === game.h ? p : 1 - p;
 
   const treffer = gespielt && tipp ? tipp === sieger : null;
   const mark = markierung(tipp, p, marktTipp);
+  const gegen = mark && mark.id === "gegen" && !gespielt;
 
-  return (
-    <div style={{
-      padding: "11px 14px", marginBottom: 6, borderRadius: 8, background: C.surface,
-      border: `1px solid ${mark && mark.id === "gegen" && !gespielt ? C.red + "55" : C.line}`,
-    }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-      <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: color(tipp || game.h) }} />
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, color: C.text, fontWeight: sieger === game.a ? 600 : 400 }}>
-          {name(game.a)}
-          {gespielt && <span style={{ fontFamily: FONT.mono, color: C.muted, marginLeft: 8 }}>{game.as}</span>}
+  const zeile = (code, punkte, pTeam) => {
+    const [stadt, spitz] = namensTeile(code);
+    const vorn = tipp === code, gewann = sieger === code;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "5px 0" }}>
+        <TeamChip code={code} />
+        <div style={{ flex: 1, minWidth: 0, opacity: gespielt && !gewann ? 0.55 : 1 }}>
+          <div style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted, letterSpacing: "0.06em", textTransform: "uppercase" }}>{stadt}</div>
+          <div style={{ fontFamily: FONT.head, fontWeight: 700, fontSize: 21, lineHeight: 1.05, color: C.text,
+                        textTransform: "uppercase", letterSpacing: "0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {spitz}
+            {vorn && !gespielt && <span style={{ marginLeft: 7, fontSize: 12, color: C.gold, verticalAlign: 3 }}>&#9664; TIPP</span>}
+          </div>
         </div>
-        <div style={{ fontSize: 14, color: C.text, fontWeight: sieger === game.h ? 600 : 400 }}>
-          bei {name(game.h)}
-          {gespielt && <span style={{ fontFamily: FONT.mono, color: C.muted, marginLeft: 8 }}>{game.hs}</span>}
-        </div>
-        <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 3 }}>
-          {game.t ? `${game.t.slice(0, 5)} ET` : ""}
-          {game.dv ? " · Division" : ""}
-          {pick && pick.st === "fix" ? " · Pick eingefroren" : ""}
-          {mark && (
-            <span style={{
-              marginLeft: 7, padding: "1px 6px", borderRadius: 4,
-              border: `1px solid ${mark.farbe}66`, color: mark.farbe,
-              fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase",
-            }}>
-              {mark.label}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div style={{ textAlign: "right", minWidth: 96 }}>
-        {tipp ? (
-          <>
-            <div style={{ fontFamily: FONT.mono, fontSize: 15, color: treffer === null ? C.text : treffer ? C.green : C.red }}>
-              {tipp} {p !== null ? pct(p) : ""}
+        {gespielt ? (
+          <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 32, color: gewann ? C.text : C.muted3, minWidth: 46, textAlign: "right" }}>
+            {punkte}
+          </div>
+        ) : pTeam !== null && (
+          <div style={{ textAlign: "right", minWidth: 62 }}>
+            <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 30, lineHeight: 1, color: vorn ? C.text : C.muted3 }}>
+              {Math.round(pTeam * 100)}<span style={{ fontSize: 16, marginLeft: 1 }}>%</span>
             </div>
-            <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3 }}>
-              {pMarkt !== null
-                ? `Markt ${marktTipp} ${pct(Math.max(pMarkt, 1 - pMarkt))}`
-                : "keine Quote"}
-            </div>
-          </>
-        ) : (
-          <span style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted3 }}>keine Prognose</span>
+          </div>
         )}
       </div>
-    </div>
-    {/* Nur vor dem Spiel: danach ist der Hinweis Geschichte und die Farbe sagt alles. */}
-    {mark && mark.text && !gespielt && (
+    );
+  };
+
+  const ko = anstoss(game);
+  return (
+    <div className="cako-karte cako-rein" style={{
+      position: "relative", overflow: "hidden", borderRadius: 12,
+      background: `linear-gradient(100deg, ${alpha(game.a, 0.16)} 0%, ${C.surface} 38%, ${C.surface} 62%, ${alpha(game.h, 0.16)} 100%)`,
+      border: `1px solid ${gegen ? C.red + "88" : C.line}`,
+      boxShadow: gegen ? `0 0 0 1px ${C.red}33, 0 6px 24px ${C.red}1f` : "0 4px 18px rgba(0,0,0,0.25)",
+    }}>
+      {/* Kopfzeile */}
       <div style={{
-        marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.line}`,
-        fontFamily: FONT.mono, fontSize: 10, color: C.text2, lineHeight: 1.6,
+        display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
+        borderBottom: `1px solid ${C.line}`, background: "rgba(0,0,0,0.18)",
+        fontFamily: FONT.mono, fontSize: 10, color: C.muted,
       }}>
-        {mark.text}
+        <span style={{ color: C.text2 }}>{isNaN(ko) ? "" : ZEIT_DE.format(ko).replace(",", "")}</span>
+        {game.dv ? <span>· Division</span> : null}
+        {pick && pick.st === "fix" && !gespielt ? <span title="Pick eingefroren">· &#128274; fix</span> : null}
+        <span style={{ flex: 1 }} />
+        {mark && (
+          <span style={{
+            padding: "2px 8px", borderRadius: 3, fontFamily: FONT.head, fontWeight: 700, fontSize: 12,
+            letterSpacing: "0.08em", textTransform: "uppercase",
+            background: mark.id === "muenz" ? "transparent" : mark.farbe, color: mark.id === "muenz" ? C.muted : "#0B0F1A",
+            border: mark.id === "muenz" ? `1px solid ${C.line2}` : "none",
+          }}>
+            {mark.label}
+          </span>
+        )}
+        {gespielt && treffer !== null && (
+          <span style={{
+            padding: "2px 8px", borderRadius: 3, fontFamily: FONT.head, fontWeight: 700, fontSize: 12,
+            letterSpacing: "0.08em", background: treffer ? C.green : C.red, color: "#0B0F1A",
+          }}>{treffer ? "TREFFER" : "DANEBEN"}</span>
+        )}
       </div>
-    )}
+
+      <div style={{ padding: "8px 14px 4px" }}>
+        {zeile(game.a, game.as, pHeim === null ? null : 1 - pHeim)}
+        {zeile(game.h, game.hs, pHeim)}
+      </div>
+
+      {/* Wahrscheinlichkeits-Balken in Vereinsfarben */}
+      {pHeim !== null && (
+        <div style={{ padding: "4px 14px 0" }}>
+          <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", background: C.line }}>
+            <div style={{ width: `${(1 - pHeim) * 100}%`, background: farbe(game.a) }} />
+            <div style={{ width: 2, background: C.bg }} />
+            <div style={{ flex: 1, background: farbe(game.h) }} />
+          </div>
+        </div>
+      )}
+
+      <div style={{
+        display: "flex", justifyContent: "space-between", gap: 8, padding: "9px 14px 11px",
+        fontFamily: FONT.mono, fontSize: 10, color: C.muted,
+      }}>
+        <span>Modell <b style={{ color: C.text2, fontWeight: 500 }}>{tipp ? `${tipp} ${pct(p)}` : "–"}</b></span>
+        <span>{pMarkt !== null ? <>Markt <b style={{ color: C.text2, fontWeight: 500 }}>{marktTipp} {pct(Math.max(pMarkt, 1 - pMarkt))}</b></> : "keine Quote"}</span>
+      </div>
+
+      {/* Nur vor dem Spiel: danach ist der Hinweis Geschichte und die Farbe sagt alles. */}
+      {mark && mark.text && !gespielt && (
+        <div style={{
+          padding: "9px 14px 11px", borderTop: `1px solid ${C.red}44`, background: `${C.red}14`,
+          fontFamily: FONT.body, fontSize: 12, color: C.text2, lineHeight: 1.5,
+        }}>
+          {mark.text}
+        </div>
+      )}
     </div>
   );
 }
@@ -579,11 +722,15 @@ function SpielplanTab({ data, model, ki }) {
     [data, woche]
   );
 
+  // Gruppiert nach deutschem Kalendertag: das Sonntagabendspiel (US) laeuft
+  // bei uns in der Nacht auf Montag und steht deshalb unter Montag.
   const nachTag = useMemo(() => {
     const m = new Map();
-    for (const g of spiele) {
-      if (!m.has(g.d)) m.set(g.d, []);
-      m.get(g.d).push(g);
+    for (const g of [...spiele].sort((x, y) => anstoss(x) - anstoss(y))) {
+      const ko = anstoss(g);
+      const k = isNaN(ko) ? g.d : TAGKEY_DE.format(ko);
+      if (!m.has(k)) m.set(k, { label: isNaN(ko) ? dayLabel(g.d) : TAG_DE.format(ko), gs: [] });
+      m.get(k).gs.push(g);
     }
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [spiele]);
@@ -611,25 +758,33 @@ function SpielplanTab({ data, model, ki }) {
 
       {bilanz.n > 0 && (
         <div style={{
-          margin: "8px 16px 14px", padding: "10px 14px", borderRadius: 8,
-          background: C.surface2, border: `1px solid ${C.line}`,
-          fontFamily: FONT.mono, fontSize: 12, color: C.text2,
+          margin: "8px 16px 16px", display: "flex", borderRadius: 10, overflow: "hidden",
+          border: `1px solid ${C.line}`, fontFamily: FONT.head, textTransform: "uppercase",
         }}>
-          Woche {woche}: Modell{" "}
-          <strong style={{ color: C.gold }}>{bilanz.m}/{bilanz.n}</strong>{" "}
-          &middot; Vegas <strong style={{ color: C.text }}>{bilanz.v}/{bilanz.n}</strong>
+          {[["Modell", bilanz.m, bilanz.m >= bilanz.v ? C.gold : C.text2], ["Vegas", bilanz.v, C.text2]].map(([t, k, f], i) => (
+            <div key={t} style={{ flex: 1, padding: "10px 14px", background: i ? C.surface : C.surface2 }}>
+              <div style={{ fontSize: 11, letterSpacing: "0.1em", color: C.muted, fontWeight: 600 }}>{t} &middot; Woche {woche}</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: f, lineHeight: 1.1 }}>{k}<span style={{ fontSize: 16, color: C.muted3 }}>/{bilanz.n}</span></div>
+            </div>
+          ))}
         </div>
       )}
 
       <div style={{ padding: "0 16px 40px" }}>
-        {nachTag.map(([tag, gs]) => (
-          <section key={tag} style={{ marginBottom: 18 }}>
+        {nachTag.map(([tag, { label, gs }]) => (
+          <section key={tag} style={{ marginBottom: 22 }}>
             <h2 style={{
-              margin: "0 0 7px", fontFamily: FONT.head, fontSize: 15, fontWeight: 500,
-              letterSpacing: "0.08em", textTransform: "uppercase", color: C.muted,
+              display: "flex", alignItems: "center", gap: 10,
+              margin: "0 0 10px", fontFamily: FONT.head, fontSize: 17, fontWeight: 800, fontStyle: "italic",
+              letterSpacing: "0.06em", textTransform: "uppercase", color: C.text,
             }}>
-              {dayLabel(tag)}
+              <span style={{ width: 16, height: 3, background: C.gold }} />
+              {label}
+              <span style={{ fontFamily: FONT.mono, fontStyle: "normal", fontWeight: 400, fontSize: 10, color: C.muted3 }}>
+                {gs.length} {gs.length === 1 ? "Spiel" : "Spiele"}
+              </span>
             </h2>
+            <div className="cako-raster">
             {gs.map((g) => {
               const key = `${g.w}-${g.a}-${g.h}`;
               return (
@@ -642,6 +797,7 @@ function SpielplanTab({ data, model, ki }) {
                 />
               );
             })}
+            </div>
           </section>
         ))}
       </div>
@@ -1012,12 +1168,13 @@ function WPKurve({ punkte, hCode, aCode, hoehe = 130 }) {
 function WPBalken({ pHeim, hCode, aCode }) {
   return (
     <div style={{ marginTop: 9 }}>
-      <div style={{ display: "flex", height: 7, borderRadius: 4, overflow: "hidden", background: C.line }}>
-        <div style={{ width: `${pHeim * 100}%`, background: color(hCode) }} />
-        <div style={{ flex: 1, background: color(aCode) }} />
+      <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", background: C.line }}>
+        <div style={{ width: `${(1 - pHeim) * 100}%`, background: farbe(aCode), transition: "width .6s ease" }} />
+        <div style={{ width: 2, background: C.bg }} />
+        <div style={{ flex: 1, background: farbe(hCode) }} />
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: FONT.mono, fontSize: 10, color: C.muted, marginTop: 3 }}>
-        <span>{hCode} {pct(pHeim)}</span><span>{aCode} {pct(1 - pHeim)}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: FONT.head, fontWeight: 700, fontSize: 14, color: C.text2, marginTop: 4, letterSpacing: "0.03em" }}>
+        <span>{aCode} {pct(1 - pHeim)}</span><span>{hCode} {pct(pHeim)}</span>
       </div>
     </div>
   );
@@ -1035,36 +1192,60 @@ function LiveKarte({ sp, kurve, pick }) {
   const tipp = fertig && !sp.pre && pick ? pick.pick : null;
 
   return (
-    <div style={{
-      padding: "13px 14px", marginBottom: 10, borderRadius: 9,
-      background: C.surface, border: `1px solid ${laeuft ? C.gold + "66" : C.line}`,
+    <div className="cako-rein" style={{
+      padding: "0 0 13px", marginBottom: 12, borderRadius: 12, overflow: "hidden",
+      background: `linear-gradient(100deg, ${alpha(sp.a, 0.16)} 0%, ${C.surface} 38%, ${C.surface} 62%, ${alpha(sp.h, 0.16)} 100%)`,
+      border: `1px solid ${laeuft ? C.gold + "88" : C.line}`,
+      boxShadow: laeuft ? `0 0 0 1px ${C.gold}22, 0 6px 24px ${C.gold}14` : "0 4px 18px rgba(0,0,0,0.25)",
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-        <span style={{ fontFamily: FONT.mono, fontSize: 10, color: laeuft ? C.gold : C.muted3 }}>
-          {laeuft ? `LIVE · Q${sp.period} ${sp.clock}` : fertig ? "Endstand" : sp.detail}
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
+        padding: "8px 14px", borderBottom: `1px solid ${C.line}`, background: "rgba(0,0,0,0.18)",
+      }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: FONT.mono, fontSize: 10, color: laeuft ? C.text : C.muted }}>
+          {laeuft && (
+            <span style={{ padding: "2px 7px", borderRadius: 3, background: C.red, color: "#fff",
+                           fontFamily: FONT.head, fontWeight: 800, fontSize: 12, letterSpacing: "0.1em" }}>LIVE</span>
+          )}
+          {laeuft ? `Q${sp.period} · ${sp.clock}` : fertig ? "ENDSTAND" : sp.detail}
           {sp.pre && " · Vorbereitung"}
         </span>
         {sp.possHome !== null && laeuft && (
-          <span style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted3 }}>
-            Ball bei {sp.possHome ? sp.h : sp.a}
+          <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted }}>
+            &#127944; {sp.possHome ? sp.h : sp.a}
           </span>
         )}
         {tipp && sieger && (
-          <span style={{ fontFamily: FONT.mono, fontSize: 11, color: tipp === sieger ? C.green : C.red }}>
-            {tipp === sieger ? "✓" : "✕"} Tipp {tipp}
+          <span style={{ padding: "2px 8px", borderRadius: 3, fontFamily: FONT.head, fontWeight: 700, fontSize: 12,
+                         letterSpacing: "0.08em", background: tipp === sieger ? C.green : C.red, color: "#0B0F1A" }}>
+            {tipp === sieger ? "✓ TREFFER" : "✕ DANEBEN"} · {tipp}
           </span>
         )}
       </div>
 
-      <div style={{ marginTop: 7 }}>
-        <div style={{ fontSize: 14, color: C.text, fontWeight: sieger === sp.a ? 600 : 400 }}>
-          {name(sp.a)} <span style={{ fontFamily: FONT.mono, color: C.muted }}>{sp.as}</span>
-        </div>
-        <div style={{ fontSize: 14, color: C.text, fontWeight: sieger === sp.h ? 600 : 400 }}>
-          bei {name(sp.h)} <span style={{ fontFamily: FONT.mono, color: C.muted }}>{sp.hs}</span>
-        </div>
+      <div style={{ padding: "8px 14px 0" }}>
+        {[[sp.a, sp.as, sp.possHome === false], [sp.h, sp.hs, sp.possHome === true]].map(([c, pkt, ball]) => {
+          const [stadt, spitz] = namensTeile(c);
+          const blass = fertig && sieger && sieger !== c;
+          return (
+            <div key={c} style={{ display: "flex", alignItems: "center", gap: 11, padding: "5px 0" }}>
+              <TeamChip code={c} />
+              <div style={{ flex: 1, minWidth: 0, opacity: blass ? 0.55 : 1 }}>
+                <div style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted, letterSpacing: "0.06em", textTransform: "uppercase" }}>{stadt}</div>
+                <div style={{ fontFamily: FONT.head, fontWeight: 700, fontSize: 21, lineHeight: 1.05, textTransform: "uppercase", color: C.text }}>
+                  {spitz}
+                  {laeuft && ball && <span style={{ marginLeft: 7, fontSize: 13, color: C.gold }}>&#9679;</span>}
+                </div>
+              </div>
+              <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 34, lineHeight: 1, color: blass ? C.muted3 : C.text, minWidth: 44, textAlign: "right" }}>
+                {pkt}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
+      <div style={{ padding: "0 14px" }}>
       {(laeuft || fertig) && <WPBalken pHeim={sp.wp} hCode={sp.h} aCode={sp.a} />}
 
       {hinweis && (
@@ -1091,6 +1272,7 @@ function LiveKarte({ sp, kurve, pick }) {
           oder Bilanz.
         </p>
       )}
+      </div>
     </div>
   );
 }
@@ -1101,11 +1283,11 @@ function KommendZeile({ k, jetzt }) {
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", marginBottom: 6,
-      borderRadius: 8, background: C.surface, border: `1px solid ${C.line}`,
+      borderRadius: 10, background: C.surface, border: `1px solid ${C.line}`,
     }}>
-      <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: fav ? color(fav) : C.line2 }} />
+      <span style={{ display: "inline-flex", gap: 4 }}><TeamChip code={k.a} gross={30} /><TeamChip code={k.h} gross={30} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: C.text }}>{k.a} @ {k.h}</div>
+        <div style={{ fontFamily: FONT.head, fontWeight: 700, fontSize: 17, color: C.text, letterSpacing: "0.03em" }}>{k.a} @ {k.h}</div>
         <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>
           {k.ko.toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
           {" · "}{bisDahin(k.ko, jetzt)}
@@ -1113,8 +1295,9 @@ function KommendZeile({ k, jetzt }) {
         </div>
       </div>
       {fav && (
-        <span style={{ fontFamily: FONT.mono, fontSize: 13, color: C.gold }}>
-          {fav} {pct(Math.max(k.p, 1 - k.p))}
+        <span style={{ textAlign: "right", fontFamily: FONT.head, fontWeight: 800, fontSize: 22, lineHeight: 1, color: C.text }}>
+          {Math.round(Math.max(k.p, 1 - k.p) * 100)}<span style={{ fontSize: 13 }}>%</span>
+          <div style={{ fontSize: 11, fontWeight: 700, color: farbe(fav), letterSpacing: "0.08em" }}>{fav}</div>
         </span>
       )}
     </div>
@@ -1286,18 +1469,8 @@ function TippscheinTab({ data, model }) {
 
   return (
     <div style={{ padding: "14px 16px 40px" }}>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-        {wochen.slice(0, 8).map((w) => (
-          <button key={w} onClick={() => { setWoche(w); setGewaehlt(new Set()); }} style={{
-            width: 36, height: 30, borderRadius: 5, cursor: "pointer",
-            border: `1px solid ${w === woche ? C.gold : C.line}`,
-            background: w === woche ? "rgba(217,164,65,0.12)" : C.surface,
-            color: w === woche ? C.gold : C.muted, fontFamily: FONT.mono, fontSize: 12,
-          }}>
-            {w}
-          </button>
-        ))}
-      </div>
+      <WochenWahl wochen={wochen.slice(0, 8)} woche={woche} rand="2px 0 10px"
+                  setWoche={(w) => { setWoche(w); setGewaehlt(new Set()); }} />
 
       <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, margin: "0 0 12px", lineHeight: 1.7 }}>
         Woche {woche} &middot; {legs.length} offene Spiele, davon {positive} mit positivem
@@ -1309,9 +1482,9 @@ function TippscheinTab({ data, model }) {
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
         {[["2 Aussenseiter + 4 Favoriten", 2, 4], ["1 + 3", 1, 3], ["3 + 3", 3, 3]].map(([l, o, f]) => (
           <button key={l} onClick={() => mischen(o, f)} style={{
-            padding: "6px 11px", borderRadius: 5, cursor: "pointer",
-            border: `1px solid ${C.line}`, background: C.surface, color: C.text2,
-            fontFamily: FONT.mono, fontSize: 11,
+            padding: "8px 13px", borderRadius: 7, cursor: "pointer",
+            border: `1px solid ${C.gold}66`, background: "rgba(217,164,65,0.08)", color: C.gold,
+            fontFamily: FONT.head, fontWeight: 700, fontSize: 14, letterSpacing: "0.05em", textTransform: "uppercase",
           }}>
             {l}
           </button>
@@ -1334,9 +1507,9 @@ function TippscheinTab({ data, model }) {
           background: C.surface2, border: `1px solid ${scheinEV > 0 ? C.green + "66" : C.line}`,
         }}>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontFamily: FONT.mono, fontSize: 12 }}>
-            <span style={{ color: C.text }}>
-              {schein.length} Tipps &middot; Gesamtquote{" "}
-              <strong style={{ color: C.gold }}>{gesamtQuote.toFixed(2)}</strong>
+            <span style={{ color: C.text, fontFamily: FONT.head, fontWeight: 700, fontSize: 18, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              {schein.length} Tipps &middot; Quote{" "}
+              <strong style={{ color: C.gold, fontSize: 26, fontWeight: 800 }}>{gesamtQuote.toFixed(2)}</strong>
             </span>
             <span style={{ color: C.muted }}>
               alle treffen: {pct(alleTreffen, 1)}
@@ -1423,14 +1596,16 @@ function TippscheinTab({ data, model }) {
             onClick={() => umschalten(l.key)}
             style={{
               display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left",
-              padding: "10px 12px", marginBottom: 6, borderRadius: 8, cursor: "pointer",
-              background: an ? "rgba(217,164,65,0.09)" : C.surface,
+              padding: "10px 12px", marginBottom: 7, borderRadius: 11, cursor: "pointer",
+              background: an ? `linear-gradient(100deg, ${alpha(l.tipp, 0.25)} 0%, rgba(217,164,65,0.08) 100%)` : C.surface,
               border: `1px solid ${an ? C.gold : C.line}`,
             }}
           >
-            <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: color(l.tipp) }} />
+            <TeamChip code={l.tipp} gross={36} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, color: C.text }}>{name(l.tipp)}</div>
+              <div style={{ fontFamily: FONT.head, fontWeight: 700, fontSize: 19, textTransform: "uppercase", color: C.text, lineHeight: 1.1 }}>
+                {an ? "✓ " : ""}{namensTeile(l.tipp)[1]}
+              </div>
               <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>
                 gegen {name(l.tipp === l.g.h ? l.g.a : l.g.h)}
                 {" · "}
@@ -1438,8 +1613,9 @@ function TippscheinTab({ data, model }) {
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: FONT.mono, fontSize: 13, color: C.text }}>
-                {pct(l.p)} &middot; {l.quote.toFixed(2)}
+              <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 22, color: C.text, lineHeight: 1 }}>
+                {Math.round(l.p * 100)}<span style={{ fontSize: 13 }}>%</span>
+                <span style={{ color: C.gold, marginLeft: 8 }}>{l.quote.toFixed(2)}</span>
               </div>
               <div style={{ fontFamily: FONT.mono, fontSize: 10, color: l.ev > 0 ? C.green : C.red }}>
                 EV {l.ev > 0 ? "+" : ""}{l.ev.toFixed(2)}
@@ -1615,11 +1791,11 @@ function AufstellungsDuell({ data, heim, gast }) {
 
   return (
     <section style={{
-      marginTop: 22, padding: 15, borderRadius: 10,
+      marginTop: 22, padding: 15, borderRadius: 14,
       background: C.surface, border: `1px solid ${C.line}`,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-        <span style={{ fontFamily: FONT.head, fontSize: 17, letterSpacing: "0.08em", textTransform: "uppercase", color: C.text }}>
+        <span style={{ fontFamily: FONT.head, fontSize: 18, fontWeight: 800, fontStyle: "italic", letterSpacing: "0.05em", textTransform: "uppercase", color: C.text }}>
           Aufstellungs-Duell
         </span>
         <button onClick={() => setGetauscht(!getauscht)} style={{
@@ -1693,38 +1869,70 @@ function MatchupTab({ data, model, ki }) {
 
   return (
     <div style={{ padding: "14px 16px 40px" }}>
-      <WochenWahl wochen={wochen} woche={woche} setWoche={setWoche} />
+      <WochenWahl wochen={wochen} woche={woche} setWoche={setWoche} rand="2px 0 8px" />
 
-      <select
-        value={idx}
-        onChange={(e) => setIdx(Number(e.target.value))}
-        style={{
-          width: "100%", padding: "9px 11px", marginBottom: 14, borderRadius: 7,
-          background: C.surface, color: C.text, border: `1px solid ${C.line}`,
-          fontFamily: FONT.body, fontSize: 13,
-        }}
-      >
-        {spiele.map((s, i) => (
-          <option key={`${s.a}-${s.h}`} value={i}>
-            {name(s.a)} bei {name(s.h)}
-          </option>
-        ))}
-      </select>
+      <div className="cako-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", padding: "4px 0 14px" }}>
+        {spiele.map((s, i) => {
+          const an_ = s === g;
+          return (
+            <button
+              key={`${s.a}-${s.h}`}
+              aria-label={`${name(s.a)} bei ${name(s.h)}`}
+              onClick={() => setIdx(i)}
+              style={{
+                flex: "0 0 auto", display: "flex", alignItems: "center", gap: 4, padding: 5, borderRadius: 9, cursor: "pointer",
+                border: `1px solid ${an_ ? C.gold : C.line}`, background: an_ ? "rgba(217,164,65,0.14)" : C.surface,
+                opacity: an_ ? 1 : 0.8,
+              }}
+            >
+              <TeamChip code={s.a} gross={28} />
+              <span style={{ fontFamily: FONT.head, fontSize: 11, color: C.muted }}>@</span>
+              <TeamChip code={s.h} gross={28} />
+            </button>
+          );
+        })}
+      </div>
 
       {/* Prognose */}
-      <div style={{
-        padding: "14px 15px", background: C.surface,
-        border: `1px solid ${C.line}`, borderRadius: 9,
+      <div className="cako-rein" style={{
+        borderRadius: 14, overflow: "hidden", border: `1px solid ${C.line}`,
+        background: `linear-gradient(100deg, ${alpha(g.a, 0.28)} 0%, ${C.surface} 42%, ${C.surface} 58%, ${alpha(g.h, 0.28)} 100%)`,
       }}>
-        <div style={{ fontSize: 15, color: C.text, marginBottom: 8 }}>
-          Modell sieht{" "}
-          <strong style={{ color: color(zeigtHeim ? g.h : g.a) === "#0A0D16" ? C.gold : C.text }}>
-            {name(zeigtHeim ? g.h : g.a)}
-          </strong>{" "}
-          vorn &mdash;{" "}
-          <span style={{ fontFamily: FONT.mono, color: C.gold }}>{pTipp === null ? "?" : pct(pTipp, 1)}</span>
-        </div>
-        <div style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted, lineHeight: 1.8 }}>
+        {(() => {
+          const pH = pTipp === null ? null : zeigtHeim ? pTipp : 1 - pTipp;
+          const seite = (c, p_, rechts) => {
+            const [stadt, spitz] = namensTeile(c);
+            const vorn = (c === g.h) === zeigtHeim;
+            return (
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: rechts ? "flex-end" : "flex-start", textAlign: rechts ? "right" : "left" }}>
+                <TeamChip code={c} gross={54} />
+                <div style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted, marginTop: 8, letterSpacing: "0.06em", textTransform: "uppercase" }}>{stadt}</div>
+                <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 24, lineHeight: 1, textTransform: "uppercase", color: C.text }}>{spitz}</div>
+                <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 44, lineHeight: 1.05, marginTop: 6, color: vorn ? C.text : C.muted3 }}>
+                  {p_ === null ? "–" : Math.round(p_ * 100)}<span style={{ fontSize: 20 }}>%</span>
+                </div>
+              </div>
+            );
+          };
+          return (
+            <div style={{ padding: "16px 16px 12px" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                {seite(g.a, pH === null ? null : 1 - pH, false)}
+                <div style={{ alignSelf: "center", fontFamily: FONT.head, fontWeight: 800, fontStyle: "italic", fontSize: 22, color: C.gold }}>@</div>
+                {seite(g.h, pH, true)}
+              </div>
+              {pH !== null && (
+                <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", marginTop: 12, background: C.line }}>
+                  <div style={{ width: `${(1 - pH) * 100}%`, background: farbe(g.a) }} />
+                  <div style={{ width: 2, background: C.bg }} />
+                  <div style={{ flex: 1, background: farbe(g.h) }} />
+                </div>
+              )}
+            </div>
+          );
+        })()}
+        <div style={{ padding: "10px 16px 13px", borderTop: `1px solid ${C.line}`, background: "rgba(0,0,0,0.18)",
+                      fontFamily: FONT.mono, fontSize: 11, color: C.muted, lineHeight: 1.8 }}>
           Markt: {pMarktHome === null ? "keine Quote" :
             `${pMarktHome >= 0.5 ? g.h : g.a} ${pct(Math.max(pMarktHome, 1 - pMarktHome), 1)}`}
           {an && an.edge ? <><br />Abstand zum Markt: {an.edge.edge > 0 ? "+" : ""}{an.edge.edge} Punkte</> : null}
@@ -1968,11 +2176,11 @@ function EloRankingTab({ data, eloHist }) {
             key={s.id}
             onClick={() => setSortId(s.id)}
             style={{
-              padding: "6px 12px", borderRadius: 5, cursor: "pointer",
+              padding: "8px 14px", borderRadius: 7, cursor: "pointer",
               border: `1px solid ${s.id === sortId ? C.gold : C.line}`,
-              background: s.id === sortId ? "rgba(217,164,65,0.12)" : C.surface,
-              color: s.id === sortId ? C.gold : C.muted,
-              fontFamily: FONT.head, fontSize: 14, letterSpacing: "0.05em", textTransform: "uppercase",
+              background: s.id === sortId ? C.gold : C.surface,
+              color: s.id === sortId ? "#12100A" : C.muted,
+              fontFamily: FONT.head, fontWeight: 700, fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase",
             }}
           >
             {s.label}
@@ -1987,15 +2195,18 @@ function EloRankingTab({ data, eloHist }) {
 
       {reihen.map((r, i) => (
         <div key={r.code} style={{
-          display: "flex", alignItems: "center", gap: 11, padding: "9px 12px",
-          background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8, marginBottom: 5,
+          display: "flex", alignItems: "center", gap: 11, padding: "10px 12px",
+          background: C.surface, border: `1px solid ${C.line}`, borderRadius: 11, marginBottom: 6,
         }}>
-          <span style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted3, width: 20, textAlign: "right" }}>
+          <span style={{ fontFamily: FONT.head, fontWeight: 800, fontStyle: "italic", fontSize: 18, color: i < 3 ? C.gold : C.muted3, width: 24, textAlign: "right" }}>
             {i + 1}
           </span>
-          <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: color(r.code) }} />
+          <TeamChip code={r.code} gross={36} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, color: C.text }}>{name(r.code)}</div>
+            <div style={{ fontFamily: FONT.head, fontWeight: 700, fontSize: 19, textTransform: "uppercase", color: C.text, lineHeight: 1.1 }}>
+              <span style={{ fontFamily: FONT.mono, fontWeight: 400, fontSize: 9, color: C.muted, marginRight: 6, letterSpacing: "0.06em" }}>{namensTeile(r.code)[0].toUpperCase()}</span>
+              {namensTeile(r.code)[1]}
+            </div>
             <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>
               {r.t.qb_verletzt && r.t.qb_verletzt.ersetzt
                 ? `${r.t.qb_name} für ${nachname(r.t.qb_verletzt.n)}`
@@ -2005,13 +2216,13 @@ function EloRankingTab({ data, eloHist }) {
               {data.proj[r.code] ? ` · ${data.proj[r.code].w.toFixed(1)} Siege erwartet` : ""}
             </div>
             <div style={{ marginTop: 8 }}>
-              <Balken anteil={anteil(r.v)} farbe={color(r.code)} />
+              <Balken anteil={anteil(r.v)} farbe={farbe(r.code)} />
             </div>
           </div>
           {sortId === "elo" && eloHist && eloHist[r.code] && (
-            <EloVerlauf punkte={eloHist[r.code]} farbe={color(r.code)} />
+            <EloVerlauf punkte={eloHist[r.code]} farbe={farbe(r.code)} />
           )}
-          <span style={{ fontFamily: FONT.mono, fontSize: 14, color: C.text, minWidth: 54, textAlign: "right" }}>
+          <span style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 22, color: C.text, minWidth: 54, textAlign: "right" }}>
             {spalte.fmt(r.v)}
           </span>
         </div>
@@ -2184,11 +2395,11 @@ function QbRankingTab({ data }) {
             key={s.id}
             onClick={() => setSortId(s.id)}
             style={{
-              padding: "6px 12px", borderRadius: 5, cursor: "pointer",
+              padding: "8px 14px", borderRadius: 7, cursor: "pointer",
               border: `1px solid ${s.id === sortId ? C.gold : C.line}`,
-              background: s.id === sortId ? "rgba(217,164,65,0.12)" : C.surface,
-              color: s.id === sortId ? C.gold : C.muted,
-              fontFamily: FONT.head, fontSize: 14, letterSpacing: "0.05em", textTransform: "uppercase",
+              background: s.id === sortId ? C.gold : C.surface,
+              color: s.id === sortId ? "#12100A" : C.muted,
+              fontFamily: FONT.head, fontWeight: 700, fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase",
             }}
           >
             {s.label}
@@ -2218,23 +2429,23 @@ function QbRankingTab({ data }) {
             style={{
               padding: "9px 12px", cursor: "pointer",
               background: C.surface, border: `1px solid ${auf ? C.line2 : raus ? "rgba(224,104,92,0.35)" : C.line}`,
-              borderRadius: 8, marginBottom: 5,
+              borderRadius: 11, marginBottom: 6,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 11, opacity: raus && !auf ? 0.62 : 1 }}>
-              <span style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted3, width: 20, textAlign: "right" }}>
+              <span style={{ fontFamily: FONT.head, fontWeight: 800, fontStyle: "italic", fontSize: 18, color: i < 3 ? C.gold : C.muted3, width: 24, textAlign: "right" }}>
                 {i + 1}
               </span>
-              <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: color(z.code) }} />
+              <TeamChip code={z.code} gross={36} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, color: C.text, textDecoration: raus ? "line-through" : "none",
-                              textDecorationColor: C.red }}>
+                <div style={{ fontFamily: FONT.head, fontWeight: 700, fontSize: 19, lineHeight: 1.15, color: C.text,
+                              textDecoration: raus ? "line-through" : "none", textDecorationColor: C.red }}>
                   {qb.n}
                   {qb.neu ? <Marke text="NEU" farbe={C.blue} /> : null}
                   {lage ? <Marke text={lage.marke} farbe={lage.farbe} /> : null}
                 </div>
                 <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>
-                  <span style={{ color: C.muted }}>{z.code}</span> · {saisonText(qb.saison, data.season)}
+                  {saisonText(qb.saison, data.season)}
                 </div>
                 {lage && lage.zusatz && (
                   <div style={{ fontFamily: FONT.mono, fontSize: 10, color: lage.farbe, marginTop: 2 }}>
@@ -2242,10 +2453,10 @@ function QbRankingTab({ data }) {
                   </div>
                 )}
                 <div style={{ marginTop: 7 }}>
-                  <Balken anteil={hi === lo ? 1 : (qb.r - lo) / (hi - lo)} farbe={color(z.code)} />
+                  <Balken anteil={hi === lo ? 1 : (qb.r - lo) / (hi - lo)} farbe={farbe(z.code)} />
                 </div>
               </div>
-              <span style={{ fontFamily: FONT.mono, fontSize: 14, color: C.text, minWidth: 58, textAlign: "right" }}>
+              <span style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 22, color: C.text, minWidth: 58, textAlign: "right" }}>
                 {rechts}
                 {sortId === "ausfall" && e.ausfall != null && <span style={{ fontSize: 9, color: C.muted3 }}> Pp.</span>}
               </span>
@@ -2263,16 +2474,16 @@ function QbRankingTab({ data }) {
 function Kachel({ titel, wert, unter, farbe = C.text }) {
   return (
     <div style={{
-      flex: "1 1 140px", padding: "12px 14px", borderRadius: 8,
-      background: C.surface, border: `1px solid ${C.line}`,
+      flex: "1 1 140px", padding: "12px 14px", borderRadius: 12,
+      background: `linear-gradient(135deg, ${C.surface2} 0%, ${C.surface} 100%)`, border: `1px solid ${C.line}`,
     }}>
       <div style={{
-        fontFamily: FONT.head, fontSize: 12, letterSpacing: "0.09em",
-        textTransform: "uppercase", color: C.muted3, marginBottom: 5,
+        fontFamily: FONT.head, fontSize: 12, fontWeight: 700, letterSpacing: "0.1em",
+        textTransform: "uppercase", color: C.muted, marginBottom: 4,
       }}>
         {titel}
       </div>
-      <div style={{ fontFamily: FONT.mono, fontSize: 21, color: farbe }}>{wert}</div>
+      <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 34, lineHeight: 1.05, color: farbe }}>{wert}</div>
       {unter && (
         <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 3 }}>{unter}</div>
       )}
@@ -2284,9 +2495,11 @@ function Abschnitt({ titel, children, hinweis }) {
   return (
     <section style={{ marginTop: 22 }}>
       <h2 style={{
-        margin: "0 0 4px", fontFamily: FONT.head, fontSize: 16, fontWeight: 500,
-        letterSpacing: "0.08em", textTransform: "uppercase", color: C.text2,
+        display: "flex", alignItems: "center", gap: 10,
+        margin: "0 0 6px", fontFamily: FONT.head, fontSize: 18, fontWeight: 800, fontStyle: "italic",
+        letterSpacing: "0.05em", textTransform: "uppercase", color: C.text,
       }}>
+        <span style={{ width: 16, height: 3, background: C.gold, flex: "0 0 auto" }} />
         {titel}
       </h2>
       {hinweis && (
@@ -2502,8 +2715,9 @@ function App() {
 function Rahmen({ children, generated, ki, woche }) {
   return (
     <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: FONT.body }}>
+      <GlobalStil />
       <Kopf generated={generated} ki={ki} woche={woche} />
-      <main style={{ maxWidth: 760, margin: "0 auto" }}>{children}</main>
+      <main style={{ maxWidth: 1100, margin: "0 auto" }}>{children}</main>
     </div>
   );
 }

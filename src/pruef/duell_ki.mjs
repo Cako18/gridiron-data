@@ -7,6 +7,7 @@ await new Promise((r) => srv.listen(8099, r));
 const br = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 for (const datei of ["pruef/app_data.json", "pruef/app_data_ki.json"]) {
   const page = await br.newPage({ viewport: { width: 430, height: 1400 } });
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.fulfill({ status: 200, contentType: "text/css", body: "" })); // Schriften: im Test-Container gesperrt
   const fehler = []; page.on("pageerror", (e) => fehler.push(e.message));
   await page.route("**/raw.githubusercontent.com/**", (r) => { const u = r.request().url();
     const f = u.endsWith("model.json") ? "pruef/model.json" : u.endsWith("ai_context.json") ? "pruef/ai_context.json"

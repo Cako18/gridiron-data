@@ -26,8 +26,9 @@ gerendert, ohne Konsolenfehler.
 | Einzelanalyse per Claude-API | Der Aufruf im alten Bundle sendet keinen `x-api-key`. Auf GitHub Pages schlaegt er immer fehl - toter Code. (Immerhin: es liegt damit auch kein Schluessel im oeffentlichen Bundle.) |
 | Archetyp-Korrelationen | `Saisonstart` korreliert mit 0,72 zu `Heimfavorit` und 0,70 zu `Enges Spiel` - weil die Marke frueh in der Saison auf jedes Spiel zutrifft. Ein Artefakt, keine Erkenntnis. |
 
-**Live laeuft seit 22.09.2026 `app27.js`** (vorgezogen, damit das
-QB-Ranking online geht). Der Seite-an-Seite-Vergleich mit identischem Feed
+**Live laeuft `app28.js`** (TV-Look, seit 22.09.2026). Der Neuaufbau ging
+am selben Tag als `app27.js` online, vorgezogen fuer das QB-Ranking. Der
+Seite-an-Seite-Vergleich mit identischem Feed
 (`pruef/vergleich2.mjs`) war bestanden. Zwei Abweichungen zur alten Seite
 sind gewollt:
 
@@ -36,8 +37,23 @@ sind gewollt:
   rechnet ihn nachtraeglich mit dem heutigen Modell aus.
 
 Den Live-Tab am echten ESPN-Feed hat noch niemand gesehen - beim ersten
-Spieltag hinschauen. Zurueck zur alten Seite: in `index.html` wieder
-`app26.js` eintragen.
+Spieltag hinschauen. Zurueck zur alten Optik: in `index.html` `app27.js`
+eintragen, zur ganz alten Seite `app26.js`.
+
+### Optik (TV-Look)
+
+- Schriften (Barlow Condensed, Inter, IBM Plex Mono) laedt `GlobalStil` von
+  Google Fonts. Vorher standen sie nur im Code und wurden nie geladen - die
+  Seite lief in der Systemschrift.
+- Teamfarben gehen durch `hell()`: zu dunkle Vereinsfarben (HOU, NE, NYG)
+  werden fuer Balken und Linien aufgehellt, sonst verschwinden sie auf dem
+  dunklen Grund. Die Team-Kaestchen (`TeamChip`) behalten die Originalfarbe.
+- Anstosszeiten stehen in deutscher Zeit, der Spielplan ist nach deutschen
+  Tagen gruppiert (Donnerstagabend US = Freitag 02:15).
+- Die Tests leiten Google Fonts auf eine leere Antwort um, weil der
+  Test-Container keine Verbindung dorthin hat. Wochen-Knoepfe heissen fuer
+  Tests `Woche N` (aria-label), die Spielauswahl im Matchup ist eine
+  Chip-Leiste mit dem vollen Namen im aria-label.
 
 ## Bauen
 
