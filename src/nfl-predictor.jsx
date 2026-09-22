@@ -1870,8 +1870,8 @@ function MatchupTab({ data, model, ki }) {
             display: "flex", justifyContent: "space-between", marginTop: 10,
             fontFamily: FONT.mono, fontSize: 11, color: C.muted,
           }}>
-            <span>{ta.qb_name || "QB unbekannt"}</span>
-            <span>{th.qb_name || "QB unbekannt"}</span>
+            <span>{ta.qb_name || "QB unbekannt"}{ta.qb_verletzt && ta.qb_verletzt.ersetzt ? ` (für ${nachname(ta.qb_verletzt.n)})` : ""}<QbVerletztMarke v={ta.qb_verletzt} /></span>
+            <span>{th.qb_name || "QB unbekannt"}{th.qb_verletzt && th.qb_verletzt.ersetzt ? ` (für ${nachname(th.qb_verletzt.n)})` : ""}<QbVerletztMarke v={th.qb_verletzt} /></span>
           </div>
         </Abschnitt>
       )}
@@ -1913,7 +1913,6 @@ const RANG_SPALTEN = [
   { id: "elo", label: "Elo", feld: (t) => t.elo, fmt: (v) => v.toFixed(0), hoeherIstBesser: true },
   { id: "off", label: "Offense", feld: (t) => t.off_epa, fmt: (v) => v.toFixed(3), hoeherIstBesser: true },
   { id: "def", label: "Defense", feld: (t) => t.def_epa, fmt: (v) => v.toFixed(3), hoeherIstBesser: false },
-  { id: "qb", label: "QB", feld: (t) => t.qb, fmt: (v) => v.toFixed(3), hoeherIstBesser: true },
 ];
 
 function Balken({ anteil, farbe }) {
@@ -1982,7 +1981,7 @@ function EloRankingTab({ data, eloHist }) {
       </div>
 
       <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, margin: "0 0 10px", lineHeight: 1.6 }}>
-        Offense und QB: hoeher ist besser. Defense: niedriger ist besser, weil sie
+        Offense: hoeher ist besser. Defense: niedriger ist besser, weil sie
         gegnerische Punkterwartung je Spielzug misst. Projektion aus {data.season}.
       </p>
 
@@ -1998,7 +1997,10 @@ function EloRankingTab({ data, eloHist }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, color: C.text }}>{name(r.code)}</div>
             <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>
-              {r.t.qb_name || "QB unbekannt"}
+              {r.t.qb_verletzt && r.t.qb_verletzt.ersetzt
+                ? `${r.t.qb_name} für ${nachname(r.t.qb_verletzt.n)}`
+                : r.t.qb_name || "QB unbekannt"}
+              <QbVerletztMarke v={r.t.qb_verletzt} />
               {r.t.qb_new ? " · ohne Historie" : ""}
               {data.proj[r.code] ? ` · ${data.proj[r.code].w.toFixed(1)} Siege erwartet` : ""}
             </div>
@@ -2022,13 +2024,61 @@ function EloRankingTab({ data, eloHist }) {
 
 const epa = (v) => (v == null ? "–" : `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(3)}`);
 
+const VERLETZUNG_DE = {
+  knee: "Knie", ankle: "Knöchel", concussion: "Gehirnerschütterung", hamstring: "Oberschenkel",
+  shoulder: "Schulter", back: "Rücken", glute: "Gesäß", hand: "Hand", thumb: "Daumen",
+  finger: "Finger", elbow: "Ellbogen", foot: "Fuß", toe: "Zeh", hip: "Hüfte", groin: "Leiste",
+  calf: "Wade", wrist: "Handgelenk", ribs: "Rippen", oblique: "Rumpf", neck: "Nacken",
+  quadricep: "Oberschenkel", illness: "Krankheit", "not injury related - personal matter": "privat",
+};
+const verletzungDe = (g) => (g ? VERLETZUNG_DE[g.toLowerCase()] || g : "");
+const STATUS_DE = { Out: "Fällt aus", Doubtful: "Unwahrscheinlich", Questionable: "Fraglich" };
+
+/** Kurzform eines Namens: "Michael Penix Jr." -> "Penix" */
+const nachname = (n) => {
+  const t = (n || "").split(" ").filter((x) => !/^(Jr\.?|Sr\.?|II|III|IV)$/.test(x));
+  return t[t.length - 1] || n;
+};
+
+/** Verletzungsmarke hinter einem QB-Namen, z. B. in Matchup und Elo-Ranking. */
+function QbVerletztMarke({ v }) {
+  if (!v) return null;
+  const hart = v.status === "Out" && v.frisch;
+  const text = v.status === "Out" ? (v.frisch ? "OUT" : `OUT W${v.woche}`) : v.status === "Doubtful" ? "?" : "FRAGL.";
+  return (
+    <span title={`${STATUS_DE[v.status] || v.status}${v.grund ? " · " + verletzungDe(v.grund) : ""}`} style={{
+      marginLeft: 6, padding: "0 4px", borderRadius: 3, fontFamily: FONT.mono, fontSize: 9,
+      color: hart ? C.red : C.gold, border: `1px solid ${hart ? C.red : C.gold}`,
+    }}>
+      {text}
+    </span>
+  );
+}
+
+function Marke({ text, farbe }) {
+  return (
+    <span style={{
+      marginLeft: 7, padding: "1px 5px", borderRadius: 3, fontFamily: FONT.mono, fontSize: 9,
+      color: farbe, border: `1px solid ${farbe}`, whiteSpace: "nowrap", verticalAlign: 1,
+    }}>{text}</span>
+  );
+}
+
+/** Saisonzahlen in einer Zeile: "2 Sp. · 492 Yds · 5 TD · 1 INT · 80 %" (Jahr nur, wenn nicht die laufende Saison) */
+function saisonText(s, jahr) {
+  if (!s) return "noch keine Einsätze";
+  const t = [`${s.spiele} Sp.`, `${s.yds} Yds`, `${s.td} TD`, `${s.int} INT`];
+  if (s.jahr !== jahr) t.unshift(`${s.jahr}`);
+  if (s.quote != null) t.push(`${s.quote.toFixed(0)} %`);
+  return t.join(" · ");
+}
+
 const QB_SORT = [
-  { id: "r", label: "Modellwert", feld: (e) => e.starter.r },
-  { id: "ausfall", label: "Ausfall", feld: (e) => (e.ausfall == null ? -9 : e.ausfall) },
-  { id: "form", label: "Form", feld: (e) => (e.starter.form == null ? -9 : e.starter.form) },
+  { id: "r", label: "Modellwert", feld: (z) => z.qb.r },
+  { id: "ausfall", label: "Ausfall", feld: (z) => (z.e.ausfall == null ? -9 : z.e.ausfall) },
+  { id: "form", label: "Form", feld: (z) => (z.qb.form == null ? -9 : z.qb.form) },
 ];
 
-/** Was ein Ausfall des Starters kostet, in Klartext. */
 function ausfallText(e) {
   if (e.ausfall == null) return "kein Vertreter im Depth Chart";
   const pp = e.ausfall * 100;
@@ -2036,39 +2086,62 @@ function ausfallText(e) {
   return `−${pp.toFixed(1)} Prozentpunkte Siegchance`;
 }
 
-function StilZeile({ stil }) {
-  if (!stil) return <span style={{ color: C.muted3 }}>keine Spiele in den letzten zwei Saisons</span>;
-  const teile = [
-    stil.quote != null && `Quote ${stil.quote.toFixed(1)} %`,
-    stil.cpoe != null && `CPOE ${stil.cpoe >= 0 ? "+" : ""}${stil.cpoe.toFixed(1)}`,
-    stil.ypa != null && `${stil.ypa.toFixed(1)} Yds/Pass`,
-    stil.lauf != null && `Laufanteil ${stil.lauf.toFixed(0)} %`,
-  ].filter(Boolean);
-  return <span>{teile.join(" · ")} <span style={{ color: C.muted3 }}>({stil.spiele} Spiele)</span></span>;
-}
-
-function QbDetail({ e }) {
-  const s = e.starter, b = e.backup;
+function QbDetail({ z }) {
+  const { e, qb, rolle } = z;
   const zeile = (k, v) => (
     <div style={{ display: "flex", gap: 10, padding: "4px 0" }}>
       <span style={{ width: 86, flex: "0 0 auto", color: C.muted3 }}>{k}</span>
       <span style={{ color: C.text2, minWidth: 0 }}>{v}</span>
     </div>
   );
+  const s = qb.saison, st = qb.stil;
   return (
     <div style={{
       marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.line}`,
       fontFamily: FONT.mono, fontSize: 11, lineHeight: 1.5,
     }}>
-      {zeile("Ausfall", <span style={{ color: e.ausfall >= 0.05 ? C.red : C.text2 }}>{ausfallText(e)}</span>)}
-      {zeile("Vertreter", b
-        ? <span>{b.n} · {epa(b.r)}{b.neu ? " · Ersatzwert, unter 3 Starts" : ` · ${b.starts} Starts`}</span>
-        : "–")}
-      {zeile("Form", s.form == null ? "–" : <span>{epa(s.form)} <span style={{ color: C.muted3 }}>je Spielzug, letzte 4 Einsätze</span></span>)}
-      {s.neu && s.roh != null ? zeile("Roh-Rating", <span>{epa(s.roh)} <span style={{ color: C.muted3 }}>(zählt erst ab 3 Starts)</span></span>) : null}
-      {zeile("Stil", <StilZeile stil={s.stil} />)}
+      {zeile(s ? `Saison ${s.jahr}` : "Saison", s
+        ? <span>{s.spiele} Spiele · {s.yds} Pass-Yds · {s.td} TD · {s.int} INT
+            {s.quote != null ? ` · ${s.quote.toFixed(1)} % angekommen` : ""}
+            {s.lauf_yds ? ` · ${s.lauf_yds} Lauf-Yds` : ""}{s.lauf_td ? ` · ${s.lauf_td} Lauf-TD` : ""}</span>
+        : "noch keine Einsätze")}
+      {st && zeile("Stil (2 J.)", <span>
+        {[st.cpoe != null && `CPOE ${st.cpoe >= 0 ? "+" : ""}${st.cpoe.toFixed(1)}`,
+          st.ypa != null && `${st.ypa.toFixed(1)} Yds/Pass`,
+          st.lauf != null && `Laufanteil ${st.lauf.toFixed(0)} %`].filter(Boolean).join(" · ")}
+        <span style={{ color: C.muted3 }}> ({st.spiele} Spiele)</span></span>)}
+      {zeile("Form", qb.form == null ? "–"
+        : <span>{epa(qb.form)} <span style={{ color: C.muted3 }}>je Spielzug, letzte 4 Einsätze</span></span>)}
+      {zeile("Karriere", <span>{qb.starts} Starts{qb.neu ? " · unter 3 Starts: Modell rechnet mit Ersatzwert" : ""}
+        {qb.neu && qb.roh != null ? <span style={{ color: C.muted3 }}> (roh {epa(qb.roh)})</span> : null}</span>)}
+      {rolle === "starter" && zeile("Vertreter", e.backup
+        ? <span>{e.backup.n} · {epa(e.backup.r)}</span> : "–")}
+      {rolle === "starter" && zeile("Ausfall", e.spielt === "backup"
+        ? <span style={{ color: C.red }}>{ausfallText(e)} &mdash; bereits eingerechnet</span>
+        : <span style={{ color: e.ausfall >= 0.05 ? C.red : C.text2 }}>{ausfallText(e)}</span>)}
+      <div style={{ color: C.muted3, fontSize: 10, marginTop: 4 }}>
+        Form, Stil und Saisonzahlen beschreiben nur &mdash; im Modell steht allein der Modellwert.
+      </div>
     </div>
   );
+}
+
+/** Kopfzeile einer Ranking-Zeile: Hinweis auf Verletzung oder Vertretung. */
+function lageText(z) {
+  const v = z.e.verletzt;
+  if (z.rolle === "ersatz") return { marke: `VERTRITT ${nachname(z.e.starter.n).toUpperCase()}`, farbe: C.gold };
+  if (!v) return null;
+  const grund = verletzungDe(v.grund);
+  if (z.e.spielt === "backup") {
+    return { marke: `OUT${grund ? " · " + grund.toUpperCase() : ""}`, farbe: C.red,
+             zusatz: `fällt aus – es spielt ${z.e.backup.n}` };
+  }
+  if (v.status === "Out" && !v.frisch) {
+    return { marke: `OUT WOCHE ${v.woche}`, farbe: C.gold,
+             zusatz: "neuer Verletzungsbericht folgt Mi/Do – bis dahin rechnet das Modell mit ihm" };
+  }
+  return { marke: `${(STATUS_DE[v.status] || v.status).toUpperCase()}${grund ? " · " + grund.toUpperCase() : ""}`,
+           farbe: C.gold, zusatz: v.frisch ? "spielt laut Modell" : `Stand Woche ${v.woche}` };
 }
 
 function QbRankingTab({ data }) {
@@ -2079,7 +2152,16 @@ function QbRankingTab({ data }) {
   const reihen = useMemo(() => {
     if (!qbs) return [];
     const s = QB_SORT.find((x) => x.id === sortId);
-    return Object.entries(qbs).map(([code, e]) => ({ code, e })).sort((a, b) => s.feld(b.e) - s.feld(a.e));
+    const zs = [];
+    for (const [code, e] of Object.entries(qbs)) {
+      zs.push({ key: code, code, e, qb: e.starter, rolle: "starter" });
+      // Wer fuer einen verletzten Starter einspringt, bekommt eine eigene Zeile -
+      // der Starter bleibt trotzdem an seinem Platz stehen.
+      if (e.spielt === "backup" && e.backup && sortId !== "ausfall") {
+        zs.push({ key: code + "-ersatz", code, e, qb: e.backup, rolle: "ersatz" });
+      }
+    }
+    return zs.sort((a, b) => s.feld(b) - s.feld(a));
   }, [qbs, sortId]);
 
   if (!qbs) {
@@ -2090,8 +2172,9 @@ function QbRankingTab({ data }) {
     );
   }
 
-  const werte = reihen.map((r) => r.e.starter.r);
+  const werte = reihen.map((z) => z.qb.r);
   const lo = Math.min(...werte), hi = Math.max(...werte);
+  const ausfaelle = Object.values(qbs).filter((e) => e.spielt === "backup").length;
 
   return (
     <div style={{ padding: "14px 16px 40px" }}>
@@ -2115,59 +2198,59 @@ function QbRankingTab({ data }) {
 
       <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, margin: "0 0 10px", lineHeight: 1.6 }}>
         <b style={{ color: C.text2, fontWeight: 500 }}>Modellwert</b>: Punkte, die der QB je Spielzug
-        erzeugt (Pass und Lauf, EPA), über die Karriere gewichtet &mdash; neuere Spiele zählen mehr.
-        Genau diese Zahl rechnet das Modell. Unter drei Starts gilt ein Ersatzwert von {epa(-0.06)}.
-        {" "}<b style={{ color: C.text2, fontWeight: 500 }}>Ausfall</b>: um wie viel die Siegchance
-        daheim gegen ein Durchschnittsteam sinkt, wenn der Vertreter spielt.
-        {" "}<b style={{ color: C.text2, fontWeight: 500 }}>Form</b> und Stil beschreiben nur &mdash;
-        sie stehen nicht im Modell. Antippen für Details.
+        erzeugt (Pass und Lauf), über die Karriere gewichtet &mdash; genau diese Zahl rechnet das Modell.
+        {" "}<b style={{ color: C.text2, fontWeight: 500 }}>Ausfall</b>: um wie viel die Siegchance sinkt,
+        wenn der Vertreter spielt. Fällt ein Starter laut Verletzungsbericht aus, rechnet das Modell
+        automatisch mit dem Vertreter; der Starter bleibt mit Hinweis im Ranking.
+        {ausfaelle ? ` Diese Woche: ${ausfaelle} Ausfall${ausfaelle > 1 ? "e" : ""}.` : ""} Antippen für Details.
       </p>
 
-      {reihen.map((r, i) => {
-        const s = r.e.starter, auf = offen === r.code;
+      {reihen.map((z, i) => {
+        const { qb, e } = z, auf = offen === z.key, lage = lageText(z);
+        const raus = z.rolle === "starter" && e.spielt === "backup";
         const rechts = sortId === "ausfall"
-          ? (r.e.ausfall == null ? "–" : `${(r.e.ausfall * 100).toFixed(1)}`)
-          : sortId === "form" ? epa(s.form) : epa(s.r);
+          ? (e.ausfall == null ? "–" : (e.ausfall * 100).toFixed(1))
+          : sortId === "form" ? epa(qb.form) : epa(qb.r);
         return (
           <div
-            key={r.code}
-            onClick={() => setOffen(auf ? null : r.code)}
+            key={z.key}
+            onClick={() => setOffen(auf ? null : z.key)}
             style={{
               padding: "9px 12px", cursor: "pointer",
-              background: C.surface, border: `1px solid ${auf ? C.line2 : C.line}`, borderRadius: 8, marginBottom: 5,
+              background: C.surface, border: `1px solid ${auf ? C.line2 : raus ? "rgba(224,104,92,0.35)" : C.line}`,
+              borderRadius: 8, marginBottom: 5,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 11, opacity: raus && !auf ? 0.62 : 1 }}>
               <span style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted3, width: 20, textAlign: "right" }}>
                 {i + 1}
               </span>
-              <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: color(r.code) }} />
+              <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: color(z.code) }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: C.text }}>
-                  {s.n}
-                  {s.neu ? (
-                    <span style={{
-                      marginLeft: 7, padding: "1px 5px", borderRadius: 3, fontFamily: FONT.mono, fontSize: 9,
-                      color: C.gold, border: `1px solid ${C.gold}`,
-                    }}>NEU</span>
-                  ) : null}
+                <div style={{ fontSize: 14, color: C.text, textDecoration: raus ? "line-through" : "none",
+                              textDecorationColor: C.red }}>
+                  {qb.n}
+                  {qb.neu ? <Marke text="NEU" farbe={C.blue} /> : null}
+                  {lage ? <Marke text={lage.marke} farbe={lage.farbe} /> : null}
                 </div>
                 <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>
-                  {name(r.code)} · {s.starts} Starts
-                  {r.e.ausfall != null && r.e.ausfall >= 0.05 ? ` · Ausfall ${(r.e.ausfall * 100).toFixed(0)} Pp.` : ""}
+                  <span style={{ color: C.muted }}>{z.code}</span> · {saisonText(qb.saison, data.season)}
                 </div>
-                <div style={{ marginTop: 8 }}>
-                  <Balken anteil={hi === lo ? 1 : (s.r - lo) / (hi - lo)} farbe={color(r.code)} />
+                {lage && lage.zusatz && (
+                  <div style={{ fontFamily: FONT.mono, fontSize: 10, color: lage.farbe, marginTop: 2 }}>
+                    {lage.zusatz}
+                  </div>
+                )}
+                <div style={{ marginTop: 7 }}>
+                  <Balken anteil={hi === lo ? 1 : (qb.r - lo) / (hi - lo)} farbe={color(z.code)} />
                 </div>
               </div>
               <span style={{ fontFamily: FONT.mono, fontSize: 14, color: C.text, minWidth: 58, textAlign: "right" }}>
                 {rechts}
-                {sortId === "ausfall" && r.e.ausfall != null && (
-                  <span style={{ fontSize: 9, color: C.muted3 }}> Pp.</span>
-                )}
+                {sortId === "ausfall" && e.ausfall != null && <span style={{ fontSize: 9, color: C.muted3 }}> Pp.</span>}
               </span>
             </div>
-            {auf && <QbDetail e={r.e} />}
+            {auf && <QbDetail z={z} />}
           </div>
         );
       })}

@@ -6,7 +6,7 @@ Die urspruengliche Quelle ging verloren; im Repo lag nur das fertige
 Bundle. `nfl-predictor.jsx` ist der Neuaufbau, und er ist noch nicht
 fertig.
 
-Alle sechs Tabs sind nachgebaut und gegen echte Daten in Chromium
+Alle sieben Tabs sind gebaut und gegen echte Daten in Chromium
 gerendert, ohne Konsolenfehler.
 
 | Tab | Inhalt |
@@ -16,7 +16,8 @@ gerendert, ohne Konsolenfehler.
 | Matchup | Prognose, Edge-Attribution, KI-Kontext, Marktbewegung, Ligavergleich, Spieltyp, Aufstellungs-Duell (Offense gegen Defense, Seitentausch, Ausfall-Last) |
 | Tippschein | EV je Tipp, Risikomischung, Poisson-Binomial-Verteilung, Gesamtquote |
 | Vegas-Duell | Bilanz, CLV, Kalibrierung mit Signifikanztest, Modell gegen Modell+KI, Merkmalsguete, bester Call |
-| Elo-Ranking | Sortierung nach Elo/Offense/Defense/QB, Elo-Verlauf, Projektion |
+| Elo-Ranking | Sortierung nach Elo/Offense/Defense, Elo-Verlauf, Projektion, QB mit Verletzungsmarke |
+| QB-Ranking | Starter nach Modellwert/Ausfall/Form, Saisonzahlen, Stil, Vertreter; verletzter Starter bleibt durchgestrichen stehen, der Vertreter bekommt eine eigene Zeile |
 
 ### Bewusst nicht uebernommen
 
@@ -25,16 +26,18 @@ gerendert, ohne Konsolenfehler.
 | Einzelanalyse per Claude-API | Der Aufruf im alten Bundle sendet keinen `x-api-key`. Auf GitHub Pages schlaegt er immer fehl - toter Code. (Immerhin: es liegt damit auch kein Schluessel im oeffentlichen Bundle.) |
 | Archetyp-Korrelationen | `Saisonstart` korreliert mit 0,72 zu `Heimfavorit` und 0,70 zu `Enges Spiel` - weil die Marke frueh in der Saison auf jedes Spiel zutrifft. Ein Artefakt, keine Erkenntnis. |
 
-**Live laeuft weiterhin `app26.js`.** Der Seite-an-Seite-Vergleich mit
-identischem Feed (`pruef/vergleich2.mjs`) ist bestanden. Zwei Abweichungen
-sind gewollt und bleiben:
+**Live laeuft seit 22.09.2026 `app27.js`** (vorgezogen, damit das
+QB-Ranking online geht). Der Seite-an-Seite-Vergleich mit identischem Feed
+(`pruef/vergleich2.mjs`) war bestanden. Zwei Abweichungen zur alten Seite
+sind gewollt:
 
 - **Live-Balken:** die neue Seite nutzt die korrigierte Live-Formel (unten).
 - **Tipp-Haekchen:** die neue Seite nimmt den eingefrorenen Pick, die alte
   rechnet ihn nachtraeglich mit dem heutigen Modell aus.
 
-Offen ist nur noch der Blick auf den echten ESPN-Feed an einem Spieltag -
-danach wird `index.html` umgestellt.
+Den Live-Tab am echten ESPN-Feed hat noch niemand gesehen - beim ersten
+Spieltag hinschauen. Zurueck zur alten Seite: in `index.html` wieder
+`app26.js` eintragen.
 
 ## Bauen
 
@@ -138,6 +141,16 @@ die logistische Regression, nachgerechnet in `predictHome()`.
    September 2026 trotzdem sein rohes Rating - ein Wert, den das Modell fuer
    solche Spieler nie gesehen hatte. Seitdem rechnen beide ueber
    `qb_wert()`. Das QB-Ranking zeigt den Rohwert nur zusaetzlich an.
+
+9. **Ein verletzter Starter wird nur mit frischem Bericht ersetzt.** Der
+   Depth Chart fuehrte in Woche 2/2026 Penix, Murray und Darnold weiter auf
+   Rang 1, obwohl alle drei "Out" waren. Die Pipeline rechnet bei "Out" mit
+   dem ersten gesunden QB dahinter - aber nur, wenn der Bericht fuer die
+   anstehende Woche gilt. Dienstags liegt noch der Bericht der gespielten
+   Woche vor; dann zeigt die Seite "Out Woche N" und rechnet mit dem
+   Starter weiter. Doubtful ersetzt nicht: in Woche 2/2026 stand Tagovailoa
+   so im Bericht, gespielt hat Cooper Rush - Doubtful ist also auch fuer den
+   Ersatz ein Ausschlussgrund, nur notfalls wird so einer gewaehlt.
 
 ## Altbestand
 

@@ -21,6 +21,9 @@ Selbstlernendes NFL-Vorhersagesystem mit öffentlich nachprüfbarer Bilanz.
   dazu der Vertreter und was ein Ausfall kostet (Siegchance daheim gegen ein
   Durchschnittsteam, einmal mit Starter, einmal mit Vertreter). Form und Stil
   (Quote, CPOE, Laufanteil) stehen daneben, fließen aber nicht ins Modell.
+  Meldet der Verletzungsbericht der anstehenden Woche den Starter als „Out“,
+  rechnet das Modell automatisch mit dem Vertreter; der Starter bleibt
+  durchgestrichen im Ranking stehen.
 - **Depth Charts** mit Injury-Status, Live-Wahrscheinlichkeiten während der
   Spiele und ein Tippschein-Rechner mit Erwartungswert-Logik
 

@@ -301,6 +301,7 @@ def main():
                 pl[c] = 0
             pl[c] = pl[c].fillna(0)
         pl["vol"] = pl["attempts"] + pl["sacks_suffered"] + pl["carries"]
+        pl_alle = pl.copy()          # ungefiltert - fuer die Saisonzahlen im QB-Ranking
         pl = pl[pl["vol"] >= 10]
         pl["qb_epa"] = (pl["passing_epa"] + pl["rushing_epa"]) / pl["vol"].clip(lower=1)
         for _, r in pl.iterrows():
@@ -339,21 +340,19 @@ def main():
         if isinstance(g["away_qb_name"], str):
             starts[g["away_team"]][g["away_qb_name"]] += 1
 
-    depth_qb, depth_qb2 = {}, {}
+    depth_qb, depth_qbs = {}, defaultdict(list)     # Starter / alle QBs nach Rang
     dc_raw = fetch_csv(DEPTH_URL.format(y=current_season))
     if dc_raw is None or not len(dc_raw):
         dc_raw = fetch_csv(DEPTH_URL.format(y=last_played))
     if dc_raw is not None and len(dc_raw):
         dc_raw = dc_raw[dc_raw["dt"] == dc_raw["dt"].max()]
-        qbs = dc_raw[(dc_raw["pos_abb"] == "QB") & (dc_raw["pos_rank"] == 1)]
+        qbs = dc_raw[dc_raw["pos_abb"] == "QB"].sort_values("pos_rank")
         for _, r in qbs.iterrows():
-            if isinstance(r["player_name"], str) and r["team"] not in depth_qb:
-                depth_qb[r["team"]] = r["player_name"].strip()
-        # Der Vertreter - fuer den Ausfallwert im QB-Ranking
-        for _, r in dc_raw[(dc_raw["pos_abb"] == "QB") & (dc_raw["pos_rank"] == 2)].iterrows():
-            if isinstance(r["player_name"], str) and r["team"] not in depth_qb2:
-                depth_qb2[r["team"]] = r["player_name"].strip()
-        print(f"  Starting-QB aus Depth Chart: {len(depth_qb)} Teams, Vertreter: {len(depth_qb2)}")
+            nm = r["player_name"].strip() if isinstance(r["player_name"], str) else None
+            if nm and nm not in depth_qbs[r["team"]]:
+                depth_qbs[r["team"]].append(nm)
+        depth_qb = {t: v[0] for t, v in depth_qbs.items() if v}
+        print(f"  Starting-QB aus Depth Chart: {len(depth_qb)} Teams")
 
     team_qb = {}
     for t in sorted(set(games["home_team"]) | set(games["away_team"])):
@@ -392,6 +391,67 @@ def main():
         inj_impact = cur_inj.groupby("team")["impact"].sum().round(2).to_dict()
         qb_out = ((cur_inj["position"] == "QB") & (cur_inj["report_status"] == "Out")
                   ).groupby(cur_inj["team"]).max().astype(int).to_dict()
+
+    # ---------- QB-Verfuegbarkeit ----------
+    # Der Depth Chart fuehrt einen verletzten Starter oft weiter auf Rang 1
+    # (Woche 2/2026: Penix, Murray und Darnold "Out", alle drei weiter Rang 1).
+    # Im Training steht immer der QB, der TATSAECHLICH gespielt hat - also der
+    # Vertreter. Damit die Vorhersage dasselbe sieht, rechnet sie bei "Out" mit
+    # dem ersten gesunden QB dahinter. Das gilt nur, wenn der Bericht fuer die
+    # anstehende Woche ist: dienstags liegt noch der Bericht der gespielten
+    # Woche vor, und ein Out von damals ist keine Auskunft ueber heute.
+    # "Doubtful" und "Questionable" werden nur angezeigt - Doubtful-QBs spielen
+    # oefter, als der Name vermuten laesst (Tagovailoa, Woche 2/2026).
+    offene = pd.to_numeric(games_all.loc[(games_all["season"] == current_season)
+                                         & games_all["home_score"].isna(), "week"], errors="coerce")
+    offen_woche = int(offene.min()) if len(offene.dropna()) else None
+    qb_bericht, bericht_woche = {}, None
+    roh_inj = next((f for f in reversed(inj_frames) if len(f) and int(f["season"].max()) == current_season), None) \
+        if inj_frames else None
+    if roh_inj is not None:
+        bericht_woche = int(roh_inj["week"].max())
+        q = roh_inj[(roh_inj["week"] == bericht_woche) & (roh_inj["position"] == "QB")
+                    & roh_inj["report_status"].isin(STATUS_W)]
+        for _, r in q.iterrows():
+            verl = r.get("report_primary_injury")
+            qb_bericht[(r["team"], norm_name(r["full_name"]))] = {
+                "status": r["report_status"],
+                "grund": verl if isinstance(verl, str) else ""}
+    frisch = bericht_woche is not None and bericht_woche == offen_woche
+    qb_lage = {}
+    for t, e in team_qb.items():
+        stamm = e["name"]
+        # Hat der Depth Chart den Verletzten schon entfernt? Dann ist der
+        # Stammspieler der, der diese Saison am haeufigsten gestartet hat.
+        if starts.get(t):
+            meist = starts[t].most_common(1)[0][0]
+            if norm_name(meist) != norm_name(stamm) and (t, norm_name(meist)) in qb_bericht:
+                stamm = meist
+        info = qb_bericht.get((t, norm_name(stamm)))
+        if not info:
+            if stamm != e["name"]:
+                continue
+            qb_lage[t] = {"stamm": stamm}
+            continue
+        # Ersatz: der erste QB dahinter ohne Out/Doubtful; notfalls ein Doubtful
+        kandidaten = [n for n in depth_qbs.get(t, []) if norm_name(n) != norm_name(stamm)]
+        stat_ = lambda n: qb_bericht.get((t, norm_name(n)), {}).get("status")
+        ersatz = next((n for n in kandidaten if stat_(n) not in ("Out", "Doubtful")),
+                      next((n for n in kandidaten if stat_(n) == "Doubtful"), None))
+        aktiv = frisch and info["status"] == "Out" and ersatz is not None
+        qb_lage[t] = {"stamm": stamm, "ersatz": ersatz, "aktiv": aktiv,
+                      "verletzt": dict(info, woche=bericht_woche, frisch=frisch)}
+        spielt = ersatz if aktiv else stamm
+        if spielt != e["name"]:
+            w = qb_wert(qb_rating, qb_starts, spielt)
+            team_qb[t] = {"name": spielt, "rating": w["modell"], "new": w["neu"], "src": "verletzung"}
+    gemeldet = [f"{t} {v['stamm']} ({v['verletzt']['status']})" for t, v in qb_lage.items() if v.get("verletzt")]
+    if gemeldet:
+        print(f"  QB im Verletzungsbericht Woche {bericht_woche} "
+              f"({'gilt' if frisch else 'veraltet, anstehend ist Woche ' + str(offen_woche)}): " + ", ".join(gemeldet))
+    for t, v in qb_lage.items():
+        if v.get("aktiv"):
+            print(f"  -> {t}: es spielt {v['ersatz']} fuer {v['stamm']}")
 
     # ---------- Trainings-Matrix + naechtliches Neutraining ----------
     print("Trainiere Modell neu...")
@@ -504,6 +564,11 @@ def main():
             "qb_new": team_qb.get(t, {}).get("new", 1),
             "qb_name": team_qb.get(t, {}).get("name", ""),
         }
+        if qb_lage.get(t, {}).get("verletzt"):
+            v = qb_lage[t]
+            teams[t]["qb_verletzt"] = {"n": v["stamm"], "status": v["verletzt"]["status"],
+                                       "grund": v["verletzt"]["grund"], "ersetzt": v["aktiv"],
+                                       "woche": v["verletzt"]["woche"], "frisch": v["verletzt"]["frisch"]}
 
     with open("data/model.json") as f:
         model_now = json.load(f)
@@ -617,8 +682,8 @@ def main():
     # kostet: Siegwahrscheinlichkeit des Teams daheim gegen ein Liga-Durchschnitts-
     # team, einmal mit Starter, einmal mit Vertreter. Form und Stil sind reine
     # Beschreibung - CPOE, Quote und Laufanteil stehen NICHT im Modell.
-    qb_board = qb_rangliste(teams, team_qb, depth_qb2, qb_rating, qb_starts, qperf,
-                            pl if pframes else None, model_now, current_season)
+    qb_board = qb_rangliste(teams, qb_lage, depth_qbs, qb_rating, qb_starts, qperf,
+                            pl_alle if pframes else None, model_now, current_season)
     print(f"  QB-Ranking: {len(qb_board)} Teams")
 
     out = {"generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
@@ -1267,43 +1332,65 @@ def weekly_review(games_all, teams, model, season, duel_rows_path="data/vegas_du
                      "wenn eine Stufe dauerhaft unter ihrem Backtest-Wert bleibt.")
     return lines
 
-def qb_rangliste(teams, team_qb, depth_qb2, qb_rating, qb_starts, qperf, pl,
+def qb_rangliste(teams, qb_lage, depth_qbs, qb_rating, qb_starts, qperf, pl,
                  model, season):
-    """Export fuers QB-Ranking der Oberflaeche. Siehe Aufruf in main()."""
-    stil_df = None
+    """Export fuers QB-Ranking der Oberflaeche. Siehe Aufruf in main().
+
+    Je Team: der Stammspieler ("starter"), sein Vertreter ("backup"), was ein
+    Ausfall kostet, und - falls gemeldet - die Verletzung. Faellt der Starter
+    aus, bleibt er im Ranking; "spielt" sagt, wer tatsaechlich rechnet.
+    """
+    stil_df = saison_df = None
     if pl is not None and len(pl):
         stil_df = pl[pl["season"] >= season - 1]
-    # letzte Auftritte je Spieler, chronologisch
+        saison_df = pl[pl["season"] == season]
+        if not len(saison_df):
+            saison_df = pl[pl["season"] == season - 1]
     verlauf = defaultdict(list)
     for (sa, wo, nm), v in sorted(qperf.items()):
         verlauf[nm].append(v)
 
-    def stil(name):
-        if stil_df is None:
+    def zeilen(df, name):
+        if df is None:
             return None
-        d = stil_df[stil_df["player_display_name"] == name]
+        d = df[df["player_display_name"] == name]
         if not len(d):
             ziel = norm_name(name)
-            d = stil_df[stil_df["player_display_name"].map(norm_name) == ziel]
-        if not len(d):
+            d = df[df["player_display_name"].map(norm_name) == ziel]
+        return d if len(d) else None
+
+    def summe(d, c):
+        return float(d[c].fillna(0).sum()) if c in d else 0.0
+
+    def stil(name):
+        d = zeilen(stil_df, name)
+        if d is None:
             return None
-        att = float(d["attempts"].sum())
-        car = float(d["carries"].sum())
-        sck = float(d["sacks_suffered"].sum())
+        att, car, sck = summe(d, "attempts"), summe(d, "carries"), summe(d, "sacks_suffered")
         out = {"spiele": int(len(d)), "att": int(att)}
         if att > 0:
-            if "completions" in d:
-                out["quote"] = round(100 * float(d["completions"].fillna(0).sum()) / att, 1)
+            out["quote"] = round(100 * summe(d, "completions") / att, 1)
+            out["ypa"] = round(summe(d, "passing_yards") / att, 1)
             if "passing_cpoe" in d:
                 m = d["passing_cpoe"].notna() & (d["attempts"] > 0)
                 if m.any():
                     out["cpoe"] = round(float((d.loc[m, "passing_cpoe"] * d.loc[m, "attempts"]).sum()
                                               / d.loc[m, "attempts"].sum()), 1)
-            if "passing_yards" in d:
-                out["ypa"] = round(float(d["passing_yards"].fillna(0).sum()) / att, 1)
         if att + sck + car > 0:
             out["lauf"] = round(100 * car / (att + sck + car), 1)
         return out
+
+    def saison(name):
+        """Klassische Saisonzahlen - das, was man im Fernsehen eingeblendet bekommt."""
+        d = zeilen(saison_df, name)
+        if d is None:
+            return None
+        att = summe(d, "attempts")
+        return {"jahr": int(d["season"].iloc[0]), "spiele": int(len(d)),
+                "yds": int(summe(d, "passing_yards")), "td": int(summe(d, "passing_tds")),
+                "int": int(summe(d, "passing_interceptions")),
+                "quote": round(100 * summe(d, "completions") / att, 1) if att else None,
+                "lauf_yds": int(summe(d, "rushing_yards")), "lauf_td": int(summe(d, "rushing_tds"))}
 
     def spieler(name):
         if not name:
@@ -1315,24 +1402,30 @@ def qb_rangliste(teams, team_qb, depth_qb2, qb_rating, qb_starts, qperf, pl,
             v = next((x for k, x in verlauf.items() if norm_name(k) == ziel), [])
         return {"n": name, "r": w["modell"], "roh": w["roh"], "starts": w["starts"],
                 "neu": w["neu"], "form": round(float(np.mean(v[-4:])), 4) if v else None,
-                "stil": stil(name)}
+                "saison": saison(name), "stil": stil(name)}
 
-    # Liga-Durchschnittsteam als Gegner: Mittelwert aller Merkmale
     felder = ["elo", "off_epa", "def_epa", "cpoe", "inj", "qb", "qb_new"]
     schnitt = {f: float(np.mean([t_[f] for t_ in teams.values()])) for f in felder}
     schnitt["qb_new"] = 0
+
+    def p_heim(t, qb):
+        g = {"h": t, "a": "_LIGA", "w": 0, "hr": 7, "ar": 7, "t": ""}
+        return predict_game(g, {t: dict(teams[t], qb=qb["r"], qb_new=qb["neu"]), "_LIGA": schnitt}, model)
+
     board = {}
     for t in teams:
-        st = spieler(team_qb.get(t, {}).get("name"))
-        if st is None:
+        lage = qb_lage.get(t)
+        if not lage:
             continue
-        bu = spieler(depth_qb2.get(t))
-        eintrag = {"starter": st, "backup": bu, "ausfall": None}
+        st = spieler(lage["stamm"])
+        ersatz = lage.get("ersatz") or next(
+            (n for n in depth_qbs.get(t, []) if norm_name(n) != norm_name(lage["stamm"])), None)
+        bu = spieler(ersatz)
+        eintrag = {"starter": st, "backup": bu, "ausfall": None,
+                   "spielt": "backup" if lage.get("aktiv") else "starter",
+                   "verletzt": lage.get("verletzt")}
         if bu is not None:
-            g = {"h": t, "a": "_LIGA", "w": 0, "hr": 7, "ar": 7, "t": ""}
-            mit = {t: dict(teams[t]), "_LIGA": schnitt}
-            ohne = {t: dict(teams[t], qb=bu["r"], qb_new=bu["neu"]), "_LIGA": schnitt}
-            p1, p2 = predict_game(g, mit, model), predict_game(g, ohne, model)
+            p1, p2 = p_heim(t, st), p_heim(t, bu)
             if p1 is not None and p2 is not None:
                 eintrag["p_mit"] = round(p1, 4)
                 eintrag["ausfall"] = round(p1 - p2, 4)

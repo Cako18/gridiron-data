@@ -9,7 +9,7 @@ const srv = createServer((q, r) => { const p = q.url === "/" ? "/src/pruef/index
   catch { r.writeHead(404); r.end(); } });
 await new Promise((r) => srv.listen(8099, r));
 const br = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
-for (const datei of ["pruef/app_data.json", "ohne qbs"]) {
+for (const datei of ["pruef/app_data_ausfall.json", "pruef/app_data.json", "ohne qbs"]) {
   const page = await br.newPage({ viewport: { width: 390, height: 2600 } });
   const fehler = [];
   page.on("pageerror", (e) => fehler.push(e.message));
@@ -26,13 +26,14 @@ for (const datei of ["pruef/app_data.json", "ohne qbs"]) {
   if (zeilen.length) { await zeilen[0].click(); await page.waitForTimeout(200); }
   const t = await page.evaluate(() => document.querySelector("main").innerText);
   console.log(`--- ${datei}: ${zeilen.length} Zeilen`);
-  console.log(zeilen.length ? t.slice(t.indexOf("MODELLWERT"), t.indexOf("MODELLWERT") + 700) : t.slice(-120));
+  console.log(zeilen.length ? t.slice(t.indexOf("Antippen"), t.indexOf("Antippen") + 900) : t.slice(-120));
+  for (const nm of ["Penix", "Tagovailoa", "Kyler Murray", "Burrow"]) { const k = t.indexOf(nm); if (k >= 0) console.log("  >>", t.slice(k, k + 160).replace(/\n/g, " | ")); }
   if (zeilen.length) {
     await page.click("button:has-text('Ausfall')"); await page.waitForTimeout(200);
     const t2 = await page.evaluate(() => document.querySelector("main").innerText);
     const i = t2.indexOf("Antippen für Details."); console.log("[Ausfall-Sortierung]", t2.slice(i + 21, i + 260).replace(/\n/g, " | "));
     await page.click("button:has-text('Modellwert')"); await page.waitForTimeout(200);
-    await page.screenshot({ path: "pruef/qb.png", fullPage: false });
+    await page.screenshot({ path: datei.includes("ausfall") ? "pruef/qb_ausfall.png" : "pruef/qb.png", fullPage: false });
   }
   console.log(fehler.length ? "FEHLER: " + fehler.join(" | ") : "Keine Konsolenfehler.");
   await page.close();
