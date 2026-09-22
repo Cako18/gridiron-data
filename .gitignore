@@ -2,3 +2,6 @@ __pycache__/
 .DS_Store
 cache/
 .venv/
+/app_next.js
+src/node_modules/
+src/pruef/_*

@@ -8,8 +8,6 @@
    Nicht uebernommen, mit Absicht:
      * Einzelanalyse per Claude-API - der Aufruf im alten Bundle sendet
        keinen Schluessel und schlaegt auf GitHub Pages immer fehl
-     * Aufstellungs-Duell - die Pipeline fuellt "lineups" nur fuer zwei
-       Teams; ein Tab dafuer waere Arbeit an einer Leerstelle
      * Archetyp-Korrelationen - "Saisonstart" korreliert mit allem, weil
        es frueh in der Saison auf jedes Spiel zutrifft. Artefakt.
 
@@ -110,7 +108,8 @@ function features(game, teams, kiadj = {}) {
   const k = kiadj[`${game.w}-${game.a}-${game.h}`] || { ha: 0, aa: 0 };
   const tzH = ZEITZONE[game.h] || 0, tzA = ZEITZONE[game.a] || 0;
   const stunde = game.t ? parseInt(String(game.t).slice(0, 2), 10) : NaN;
-  // Ruhetage: die Pipeline liefert die Differenz als "rd"; sonst aus hr/ar, auf +-7 begrenzt
+  // Ruhetage: Differenz Heim minus Gast, unbegrenzt - wie predict_game() in der
+  // Pipeline. (Die alte Live-Seite begrenzte auf +-7; die Pipeline tut das nicht.)
   const rd = game.rd !== undefined && game.rd !== null
     ? game.rd : (game.hr ?? 7) - (game.ar ?? 7);
   return {
@@ -119,9 +118,12 @@ function features(game, teams, kiadj = {}) {
     off_diff: h.off_epa - a.off_epa,
     def_diff: a.def_epa - h.def_epa,
     cpoe_diff: h.cpoe - a.cpoe,
-    rest_diff: Math.max(-7, Math.min(7, rd)),
+    rest_diff: rd,
     inj_diff: (a.inj ?? 0) - (h.inj ?? 0),
-    qb_new_diff: (h.qb_new ?? 0) - (a.qb_new ?? 0),
+    // Gast minus Heim - so ist das Merkmal trainiert (update_data.py: qb_new_a - qb_new_h).
+    // Im ersten Entwurf stand es verkehrt herum; es fiel nur deshalb nicht auf, weil
+    // gerade kein Team einen QB ohne Historie hat.
+    qb_new_diff: (a.qb_new ?? 0) - (h.qb_new ?? 0),
     bye_diff: ((game.hr ?? 7) >= 13 ? 1 : 0) - ((game.ar ?? 7) >= 13 ? 1 : 0),
     // wie viele Zeitzonen das Gastteam wechselt
     tz_shift_away: Math.abs(tzH - tzA),
@@ -414,28 +416,29 @@ function WochenWahl({ wochen, woche, setWoche }) {
 }
 
 /**
- * Gemessene Trefferquoten der Markierungen, ausserhalb der Stichprobe.
- * Quelle: markttest_voll.py - trainiert auf 2006-2019, geprueft an 1718
- * Spielen von 2020 bis 2026, die das Modell nie gesehen hat.
+ * Gemessene Trefferquoten der Markierungen fuer das Modell, das live laeuft
+ * (Kernmodell: Elo, QB-Rating, Verletzungen). Gemessen im September 2026 am
+ * echten Trainingsdatensatz der Pipeline, walk-forward 2016-2025: jede Saison
+ * wurde mit einem Modell vorhergesagt, das nur die Jahre davor kannte.
  *
- * Diese Zahlen stehen hier fest und nicht aus der laufenden Bilanz, weil
- * eine Saison mit ein paar Dutzend Spielen fuer solche Aussagen zu duenn ist.
+ * Diese Zahlen stehen hier fest und nicht aus der laufenden Bilanz, weil eine
+ * Saison mit ein paar Dutzend Spielen fuer solche Aussagen zu duenn ist.
  * Neu messen, wenn sich das Modell aendert.
  */
 const BACKTEST = {
-  zeitraum: "2020–2026",
-  n: 1718,
-  bank: { n: 548, real: 75.4, markt: 75.9 },
-  muenz: { n: 173, real: 57.8 },
-  gegen: { n: 245, real: 41.2, lo: 35.1, hi: 47.4 },
+  zeitraum: "2016\u20132025",
+  n: 2671,
+  bank: { n: 932, real: 76.9, markt: 75.4 },
+  muenz: { n: 463, real: 59.2 },
+  gegen: { n: 372, real: 42.7, lo: 37.7, hi: 47.8 },
 };
 
 /**
  * Einordnung eines Spiels. Bewusst gestrichen: "Favorit wackelt" - gleicher
  * Sieger wie der Markt, aber schwaecher eingeschaetzt. Gemessen gewannen diese
- * Favoriten 221 von 317 Mal, der Markt hatte 218 erwartet, das Modell 187.
+ * Favoriten 68,9 %, der Markt hatte 68,1 % vorhergesagt, das Modell 58,6 %.
  * Die Markierung warnte vor etwas, das nicht eintritt; sie war nur die
- * Daempfung des Modells in anderer Verkleidung.
+ * geringere Sicherheit des Modells in anderer Verkleidung.
  */
 function markierung(tipp, p, marktTipp) {
   if (!tipp || p === null) return null;
@@ -461,8 +464,8 @@ function Markierungslegende({ duel }) {
         Was die Markierungen bedeuten
       </summary>
       <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted, lineHeight: 1.8, marginTop: 8 }}>
-        Gemessen an {BACKTEST.n} Spielen von {BACKTEST.zeitraum},
-        die das Modell beim Training nie gesehen hat:
+        Gemessen an {BACKTEST.n} Spielen von {BACKTEST.zeitraum}. Jede Saison wurde mit
+        einem Modell vorhergesagt, das nur die Jahre davor kannte:
         <br /><br />
         <span style={{ color: C.green }}>BANK</span> &ndash; Favorit mit mindestens 70 %.
         Gewann {BACKTEST.bank.real} % ({BACKTEST.bank.n} Spiele). Der Markt hatte {BACKTEST.bank.markt} % gesagt
@@ -480,7 +483,7 @@ function Markierungslegende({ duel }) {
         )}
         <br /><br />
         Frueher gab es noch &bdquo;Favorit wackelt&ldquo;. Die Markierung ist weg: Diese Favoriten gewannen
-        so oft, wie der Markt vorhergesagt hatte. Die Warnung war falsch.
+        68,9 %, der Markt hatte 68,1 % vorhergesagt. Die Warnung war falsch.
       </div>
     </details>
   );
@@ -676,13 +679,47 @@ function normCdf(x) {
  *   16    Umrechnung Logit -> erwarteter Punkteabstand
  *   12.82 Streuung ueber ein volles Spiel, 3.12 Sockel am Ende
  */
+/**
+ * Umkehrfunktion der Standardnormalverteilung, Verfahren nach Acklam.
+ * Relativer Fehler unter 1,2e-9.
+ */
+function normInv(p) {
+  const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239];
+  const b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572];
+  const c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+  const d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416];
+  const q = Math.min(Math.max(p, 1e-9), 1 - 1e-9);
+  if (q < 0.02425) {
+    const r = Math.sqrt(-2 * Math.log(q));
+    return (((((c[0] * r + c[1]) * r + c[2]) * r + c[3]) * r + c[4]) * r + c[5]) / ((((d[0] * r + d[1]) * r + d[2]) * r + d[3]) * r + 1);
+  }
+  if (q > 1 - 0.02425) {
+    const r = Math.sqrt(-2 * Math.log(1 - q));
+    return -(((((c[0] * r + c[1]) * r + c[2]) * r + c[3]) * r + c[4]) * r + c[5]) / ((((d[0] * r + d[1]) * r + d[2]) * r + d[3]) * r + 1);
+  }
+  const r = q - 0.5, s = r * r;
+  return (((((a[0] * s + a[1]) * s + a[2]) * s + a[3]) * s + a[4]) * s + a[5]) * r / (((((b[0] * s + b[1]) * s + b[2]) * s + b[3]) * s + b[4]) * s + 1);
+}
+
+/** Streuung des Endabstands bei noch z Anteil Restspielzeit - geeicht, siehe liveWP. */
+const liveStreuung = (z) => 12.82 * Math.sqrt(z) + 3.12;
+
 function liveWP(pPre, homeScore, awayScore, secLeft, possHome) {
   const z = Math.max(0, Math.min(1, secLeft / 3600));
   if (z === 0) return homeScore > awayScore ? 1 : homeScore < awayScore ? 0 : 0.5;
-  const margin0 = 16 * Math.log10(pPre / (1 - pPre));
+  // Vorab-Erwartung in Punkten, so gewaehlt, dass die Kurve beim Anpfiff exakt die
+  // Prognose trifft: normCdf(margin0 / liveStreuung(1)) = pPre.
+  //
+  // Frueher stand hier 16 * log10(pPre / (1 - pPre)). Das zog jede Kurve beim
+  // Anpfiff 5 bis 7 Punkte Richtung 50 % (Green Bay: Prognose 77,5 %, Kurve 70,5 %).
+  // Gemessen an 269.461 Spielzustaenden aus 1594 Spielen: angepasst 2019-21,
+  // geprueft 2022-24 - LogLoss 0,4735 -> 0,4679, Bootstrap ueber Spiele belegt die
+  // Verbesserung (95 %: -0,0092 bis -0,0021). Die uebrigen Konstanten blieben:
+  // sie neu anzupassen machte das Ergebnis ausserhalb der Stichprobe schlechter.
+  const margin0 = liveStreuung(1) * normInv(pPre);
   const poss = possHome === null || possHome === undefined ? 0 : possHome ? 1.94 : -1.94;
   const erwarteterAbstand = homeScore - awayScore + margin0 * z + poss * Math.min(1, z * 3);
-  const streuung = 12.82 * Math.sqrt(z) + 3.12;
+  const streuung = liveStreuung(z);
   return normCdf(erwarteterAbstand / streuung);
 }
 
@@ -1493,45 +1530,125 @@ function VergleichsZeile({ label, aWert, hWert, aCode, hCode, fmt, liga, hoeherI
   );
 }
 
-/** Depth Chart eines Teams, nach Positionsgruppen. */
-function DepthChart({ code, depth }) {
-  if (!depth || !depth.groups) {
-    return <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3 }}>keine Aufstellung</p>;
-  }
+function gruppenArt(name) {
+  const n = String(name).toLowerCase();
+  if (n.includes("special")) return "st";
+  return /\bd$|defen|3-4|4-3|nickel|dime|46/.test(n) ? "def" : "off";
+}
+
+const VERLETZT_FARBE = { O: C.red, D: "#E08A5C", Q: C.gold };
+
+function VerletztMarke({ i }) {
+  if (!i) return null;
+  const f = VERLETZT_FARBE[i] || C.muted;
   return (
-    <div>
-      {Object.entries(depth.groups).map(([gruppe, positionen]) => (
-        <div key={gruppe} style={{ marginBottom: 10 }}>
-          <div style={{
-            fontFamily: FONT.head, fontSize: 12, letterSpacing: "0.08em",
-            textTransform: "uppercase", color: C.muted3, marginBottom: 4,
-          }}>
-            {gruppe}
-          </div>
-          {positionen.map((p, i) => (
-            <div key={`${p.pos}-${i}`} style={{ marginBottom: 5 }}>
-              <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3 }}>{p.pos}</span>
-              {p.players.slice(0, 3).map((sp) => (
-                <div key={sp.n} style={{
-                  fontSize: 11, paddingLeft: 8,
-                  color: sp.d === 1 ? C.text : sp.d === 2 ? C.muted : C.muted3,
-                }}>
-                  {sp.n}
-                  {sp.i && (
-                    <span style={{ color: sp.i === "O" ? C.red : C.gold, marginLeft: 5, fontFamily: FONT.mono, fontSize: 9 }}>
-                      {sp.i}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      ))}
-      <div style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted3, marginTop: 6 }}>
-        Stand {depth.stamp}
+    <span style={{
+      fontFamily: FONT.mono, fontSize: 9, color: f, border: `1px solid ${f}`,
+      borderRadius: 3, padding: "0 3px", marginLeft: 5,
+    }}>
+      {i}
+    </span>
+  );
+}
+
+/** Eine Seite des Duells: die Offense oder Defense eines Teams, Starter mit Backup. */
+function DuellSeite({ code, depth, art, rechts }) {
+  const gruppe = depth && depth.groups
+    ? Object.entries(depth.groups).find(([k]) => gruppenArt(k) === art) : null;
+  return (
+    <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8, marginBottom: 6,
+        justifyContent: rechts ? "flex-end" : "flex-start",
+      }}>
+        <span style={{ width: 3, height: 16, borderRadius: 2, background: color(code) }} />
+        <span style={{ fontFamily: FONT.head, fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase", color: C.text }}>
+          {name(code)} <span style={{ color: C.muted }}>&middot; {art === "off" ? "Offense" : "Defense"}</span>
+        </span>
       </div>
+      <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.line2, marginBottom: 4 }}>
+        {gruppe ? gruppe[0] : ""}
+      </div>
+      {!gruppe && <div style={{ fontSize: 12, color: C.muted3 }}>Keine Daten</div>}
+      {gruppe && gruppe[1].map((reihe, i) => {
+        const [st, bu] = reihe.players;
+        return (
+          <div key={reihe.pos + i} style={{
+            display: "flex", alignItems: "baseline", gap: 8, padding: "4px 0",
+            borderBottom: `1px solid ${C.surface2}`,
+          }}>
+            <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, width: 30, flexShrink: 0 }}>
+              {reihe.pos}
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 13, color: C.text }}>{st ? st.n : "–"}</span>
+              {st && <VerletztMarke i={st.i} />}
+              {bu && (
+                <span style={{
+                  display: "block", fontSize: 11, color: C.muted3,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>
+                  &#8627; {bu.n}{bu.i ? ` (${bu.i})` : ""}
+                </span>
+              )}
+            </span>
+          </div>
+        );
+      })}
     </div>
+  );
+}
+
+/**
+ * Aufstellungs-Duell: die Offense des einen gegen die Defense des anderen, so wie
+ * sie auf dem Feld aufeinandertreffen. "Seiten tauschen" zeigt die andere Paarung.
+ */
+function AufstellungsDuell({ data, heim, gast }) {
+  const [getauscht, setGetauscht] = useState(false);
+  useEffect(() => setGetauscht(false), [heim, gast]);
+  if (!data.depth || (!data.depth[heim] && !data.depth[gast])) return null;
+  const angriff = getauscht ? gast : heim, abwehr = getauscht ? heim : gast;
+  const stand = (data.depth[heim] || data.depth[gast] || {}).stamp;
+  const injH = (data.teams[heim] && data.teams[heim].inj) || 0;
+  const injA = (data.teams[gast] && data.teams[gast].inj) || 0;
+
+  return (
+    <section style={{
+      marginTop: 22, padding: 15, borderRadius: 10,
+      background: C.surface, border: `1px solid ${C.line}`,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        <span style={{ fontFamily: FONT.head, fontSize: 17, letterSpacing: "0.08em", textTransform: "uppercase", color: C.text }}>
+          Aufstellungs-Duell
+        </span>
+        <button onClick={() => setGetauscht(!getauscht)} style={{
+          background: "transparent", color: C.gold, border: `1px solid ${C.gold}`, borderRadius: 6,
+          padding: "6px 12px", cursor: "pointer",
+          fontFamily: FONT.head, fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase",
+        }}>
+          &#8644; Seiten tauschen
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-start" }}>
+        <DuellSeite code={angriff} depth={data.depth[angriff]} art="off" />
+        <div style={{
+          width: 2, alignSelf: "stretch", minHeight: 120, borderRadius: 1,
+          background: `linear-gradient(${C.line}, ${C.gold}, ${C.line})`,
+        }} />
+        <DuellSeite code={abwehr} depth={data.depth[abwehr]} art="def" rechts />
+      </div>
+      {(injH > 0 || injA > 0) && (
+        <div style={{ marginTop: 10, fontSize: 12, color: C.red }}>
+          Ausfall-Last: {name(heim)} {injH.toFixed(1)} &middot; {name(gast)} {injA.toFixed(1)} (positionsgewichtet)
+        </div>
+      )}
+      <p style={{ marginTop: 10, fontSize: 11, color: C.muted3, lineHeight: 1.5 }}>
+        Offizielle Depth Charts{stand ? ` · Stand ${stand}` : ""} &ndash; gegen&uuml;bergestellt, wie
+        sie auf dem Feld aufeinandertreffen: die Offense des einen gegen die Defense des anderen.
+        Unter jedem Starter steht sein Backup (&#8627;). K&uuml;rzel: O = Out, D = Doubtful,
+        Q = Questionable laut Injury Report.
+      </p>
+    </section>
   );
 }
 
@@ -1783,28 +1900,7 @@ function MatchupTab({ data, model, ki }) {
         </Abschnitt>
       )}
 
-      {/* Depth Charts nebeneinander */}
-      <Abschnitt
-        titel="Aufstellungen"
-        hinweis="Beide Depth Charts nebeneinander. Erste Reihe hell, dahinter abgestuft. O = out, Q = fraglich."
-      >
-        <div style={{ display: "flex", gap: 10 }}>
-          {[g.a, g.h].map((code) => (
-            <div key={code} style={{
-              flex: 1, minWidth: 0, padding: "11px 12px", background: C.surface,
-              border: `1px solid ${C.line}`, borderRadius: 8,
-            }}>
-              <div style={{
-                fontSize: 12, color: C.text, borderBottom: `2px solid ${color(code)}`,
-                paddingBottom: 5, marginBottom: 8,
-              }}>
-                {code}
-              </div>
-              <DepthChart code={code} depth={data.depth[code]} />
-            </div>
-          ))}
-        </div>
-      </Abschnitt>
+      <AufstellungsDuell data={data} heim={g.h} gast={g.a} />
     </div>
   );
 }
@@ -2045,6 +2141,33 @@ function VegasDuellTab({ data }) {
           })}
         </Abschnitt>
       )}
+
+      <Abschnitt
+        titel="Modell gegen Modell+KI"
+        hinweis="Die KI-Recherche fliesst nicht in die offiziellen Tipps ein. Zum selben Zeitpunkt wird aber festgehalten, was das Modell mit ihren Anpassungen getippt haette. Gezaehlt werden nur Spiele, an denen die KI etwas geaendert hat."
+      >
+        {d.ki ? (
+          <>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Kachel titel="Modell" wert={`${d.ki.m}/${d.ki.n}`} unter={`LogLoss ${d.ki.ll_m}`} />
+              <Kachel titel="Modell+KI" wert={`${d.ki.k}/${d.ki.n}`} unter={`LogLoss ${d.ki.ll_k}`}
+                      farbe={d.ki.k > d.ki.m ? C.green : d.ki.k < d.ki.m ? C.red : C.text} />
+              <Kachel titel="Tipp gedreht" wert={String(d.ki.wechsel)}
+                      unter={d.ki.wechsel ? `danach richtig: ${d.ki.wechsel_k}` : "noch nie"} />
+            </div>
+            <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 8, lineHeight: 1.6 }}>
+              Zwischenstand. Ein Urteil gibt es erst ab etwa 60 Spielen mit KI-Anpassung
+              {d.ki.n < 60 ? ` – noch ${60 - d.ki.n} Spiele` : ""}. Entscheidend ist dann nicht,
+              ob Modell+KI besser trifft als das Modell, sondern ob die KI etwas weiss, das die
+              Quote nicht schon enthaelt (<code>ki_test.py</code>).
+            </p>
+          </>
+        ) : (
+          <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, lineHeight: 1.6 }}>
+            Noch kein abgerechnetes Spiel. Die Messung laeuft seit Woche 3.
+          </p>
+        )}
+      </Abschnitt>
 
       {data.edge_sources && (
         <Abschnitt

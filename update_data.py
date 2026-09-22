@@ -87,6 +87,20 @@ TRAIN_FROM = 2010
 FEATURE_ORDER = ["elo_diff", "qb_diff", "off_diff", "def_diff", "cpoe_diff", "rest_diff",
                  "inj_diff", "qb_new_diff", "bye_diff", "tz_shift_away", "west_early_away"]
 
+# Aktive Merkmale. Die uebrigen bleiben in FEATURE_ORDER und model.json stehen,
+# bekommen aber den Koeffizienten 0 - so rechnen alte und neue Oberflaeche, die
+# beide elf Werte in fester Reihenfolge erwarten, ohne Anpassung richtig weiter.
+#
+# Gemessen im September 2026 am echten Trainingsdatensatz, walk-forward 2016-2025
+# (2672 Spiele, jede Saison nur mit den Jahren davor trainiert):
+#   - einzeln weggelassen verschlechtern NUR elo_diff, qb_diff und inj_diff
+#     die Vorhersage belegbar; west_early_away verbessert sie weggelassen sogar
+#   - dieses Kernmodell: LogLoss 0,6245 gegen 0,6252 mit allen elf, Unterschied
+#     nicht von null zu unterscheiden; kein systematischer Verlust nach Saison-
+#     phase oder Jahrgang; Tipps gegen den Markt gleich oft und gleich schlecht
+# Weniger Merkmale heisst hier also: gleich gut, einfacher, jede Prognose erklaerbar.
+AKTIV = ["elo_diff", "qb_diff", "inj_diff"]
+
 TZ = {"BUF": 0, "MIA": 0, "NE": 0, "NYJ": 0, "NYG": 0, "PHI": 0, "PIT": 0, "BAL": 0,
       "CIN": 0, "CLE": 0, "WAS": 0, "CAR": 0, "ATL": 0, "JAX": 0, "TB": 0, "IND": 0,
       "DET": 0, "CHI": -1, "GB": -1, "MIN": -1, "DAL": -1, "HOU": -1, "TEN": -1,
@@ -389,9 +403,21 @@ def main():
     df["y"] = (df["home_score"] > df["away_score"]).astype(int)
     df = df[df["home_score"] != df["away_score"]].dropna(subset=FEATURE_ORDER)
 
+    akt = [FEATURE_ORDER.index(f) for f in AKTIV]
+
+    def voll_koef(lr_):
+        """Koeffizienten auf alle elf Merkmale ausbreiten, inaktive mit 0."""
+        k = [0.0] * len(FEATURE_ORDER)
+        for i, c in zip(akt, lr_.coef_[0].tolist()):
+            k[i] = c
+        return k
+
+    # Mittelwert und Streuung je Spalte - fuer die aktiven identisch mit einem nur
+    # auf ihnen angepassten Scaler, fuer die inaktiven ohne Wirkung (Koeffizient 0).
     sc = StandardScaler().fit(df[FEATURE_ORDER])
-    lr = LogisticRegression(max_iter=1000).fit(sc.transform(df[FEATURE_ORDER]), df["y"])
-    train_acc = (lr.predict(sc.transform(df[FEATURE_ORDER])) == df["y"]).mean()
+    X = sc.transform(df[FEATURE_ORDER])[:, akt]
+    lr = LogisticRegression(max_iter=1000).fit(X, df["y"])
+    train_acc = (lr.predict(X) == df["y"]).mean()
 
     # Bootstrap-Ensemble: misst, wie stabil eine Vorhersage gegenueber der Datenauswahl ist
     print("  Bootstrap-Ensemble (20 Modelle) fuer Konfidenz...")
@@ -400,22 +426,23 @@ def main():
     for _ in range(20):
         s = df.sample(len(df), replace=True, random_state=int(rng_b.integers(1e6)))
         sc_b = StandardScaler().fit(s[FEATURE_ORDER])
-        lr_b = LogisticRegression(max_iter=1000).fit(sc_b.transform(s[FEATURE_ORDER]), s["y"])
+        lr_b = LogisticRegression(max_iter=1000).fit(sc_b.transform(s[FEATURE_ORDER])[:, akt], s["y"])
         boot.append({"mean": [round(v, 5) for v in sc_b.mean_.tolist()],
                      "scale": [round(v, 5) for v in sc_b.scale_.tolist()],
-                     "coef": [round(v, 5) for v in lr_b.coef_[0].tolist()],
+                     "coef": [round(v, 5) for v in voll_koef(lr_b)],
                      "intercept": round(float(lr_b.intercept_[0]), 5)})
     model = {"features": FEATURE_ORDER,
              "mean": [round(x, 5) for x in sc.mean_.tolist()],
              "scale": [round(x, 5) for x in sc.scale_.tolist()],
-             "coef": [round(x, 5) for x in lr.coef_[0].tolist()],
+             "coef": [round(x, 5) for x in voll_koef(lr)],
              "intercept": round(float(lr.intercept_[0]), 5),
+             "active": AKTIV,
              "home_adv_elo": HOME_ADV, "qb_repl": QB_REPL,
              "trained": datetime.date.today().isoformat(),
              "train_games": int(len(df)), "boot": boot}
     with open("data/model.json", "w") as f:
         json.dump(model, f, separators=(",", ":"))
-    print(f"  Modell neu trainiert: {len(df)} Spiele, In-Sample {100*train_acc:.1f}%")
+    print(f"  Modell neu trainiert: {len(df)} Spiele, {len(AKTIV)} aktive Merkmale, In-Sample {100*train_acc:.1f}%")
 
     # ---------- Spielplan ----------
     sched = []
@@ -528,6 +555,13 @@ def main():
     # Eingefrorene Picks fuer die App mitliefern - nur so kann sie vergangene
     # Wochen ehrlich auswerten. Wuerde sie die Vorhersage nachrechnen, kaeme das
     # heutige Modell zum Zug, das die Ergebnisse laengst kennt.
+    print("Simuliere Saison (10.000 Durchlaeufe)...")
+    proj = simulate_season(sched, teams, model_now)
+    duel = vegas_duel(games_all, teams, model_now, current_season)
+    # Erst NACH vegas_duel() einlesen: die Funktion schreibt vegas_duel.csv neu.
+    # Frueher stand dieser Block davor - die Seite zeigte dann die Picks des
+    # vorherigen Laufs, und im Lauf, der einen Pick einfriert, eine aeltere
+    # Fassung als die, die in der Bilanz zaehlt.
     frozen_picks = {}
     try:
         import csv as _csv
@@ -546,13 +580,13 @@ def main():
     except FileNotFoundError:
         pass
 
-    print("Simuliere Saison (10.000 Durchlaeufe)...")
-    proj = simulate_season(sched, teams, model_now)
-    duel = vegas_duel(games_all, teams, model_now, current_season)
-    kiadj = claude_batch(sched, teams, model_now, current_season)
-    ai_stats = ai_bilanz(games_all, current_season)
-    if ai_stats:
-        duel["ai"] = ai_stats
+    # Die offiziellen Picks bleiben reine Modell-Picks. Daneben wird zum selben
+    # Zeitpunkt festgehalten, was das Modell MIT den KI-Anpassungen getippt haette.
+    ki_protokoll(games_all, teams, model_now, current_season)
+    ki_stats = ki_bilanz(games_all, current_season)
+    if ki_stats:
+        duel["ki"] = ki_stats
+    kiadj = {}      # die KI wirkt nicht auf die offiziellen Picks - siehe ki_protokoll()
     print(f"  Duell-Stand: {duel['n']} abgerechnete Spiele, {duel['dis_n']} Uneinigkeiten")
 
     out = {"generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
@@ -1277,16 +1311,16 @@ def write_history_and_report(line_moves_report, teams, sched, season, model, pro
                 continue
             fav, prob = (g["h"], p) if p >= 0.5 else (g["a"], 1 - p)
             dog = g["a"] if fav == g["h"] else g["h"]
-            # Einordnung wie auf der Seite. Gemessen mit markttest_voll.py an 1718
-            # ungesehenen Spielen 2020-2026: BANK 75,4 %, Muenzwurf 57,8 %, und
-            # wenn das Modell einen anderen Sieger sieht als der Markt, nur 41,2 %.
+            # Einordnung wie auf der Seite. Gemessen fuer das Kernmodell (AKTIV),
+            # walk-forward 2016-2025 an 2671 Spielen: BANK 76,9 %, Muenzwurf 59,2 %,
+            # und wenn das Modell einen anderen Sieger sieht als der Markt, nur 42,7 %.
             # Frueher hiessen die Muenzwuerfe hier "Upset-Alarm" - das waren sie nie.
             markt_fav = None
             if g.get("mh") and g.get("ma"):
                 markt_fav = g["h"] if 1 / g["mh"] > 1 / g["ma"] else g["a"]
             tier = ""
             if markt_fav and markt_fav != fav:
-                tier = " **[GEGEN DEN MARKT - historisch hatte der Markt 59 % recht]**"; gegen += 1
+                tier = " **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**"; gegen += 1
             elif prob >= 0.70:
                 tier = " **[BANK]**"; bank += 1
             elif prob < 0.58:
@@ -1306,8 +1340,8 @@ def write_history_and_report(line_moves_report, teams, sched, season, model, pro
                     arrow = "▲" if shown > prob + 0.001 else ("▼" if shown < prob - 0.001 else "•")
                     ai_note = f" · KI {arrow} {shown*100:.0f} %"
             lines.append(f"- {NAMES.get(fav, fav)} über {NAMES.get(dog, dog)} – {prob*100:.0f} %{tier}{ai_note}")
-        lines += ["", f"{bank} BANK-Picks (gemessen 75,4 %) · {ups} Münzwürfe (57,8 %) · "
-                      f"{gegen} gegen den Markt (Modell dort nur 41,2 % - im Zweifel dem Markt folgen)", ""]
+        lines += ["", f"{bank} BANK-Picks (gemessen 76,9 %) · {ups} Münzwürfe (59,2 %) · "
+                      f"{gegen} gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)", ""]
     else:
         lines += ["Keine offenen Spiele – Saison beendet.", ""]
     lines += ["## Elo-Bewegungen (letzte 7 Tage)", ""]
@@ -1361,154 +1395,111 @@ def write_history_and_report(line_moves_report, teams, sched, season, model, pro
 
 
 
-def claude_batch(sched, teams, model, season):
-    """Automatische News-Analyse der Swing-Spiele der Woche via Anthropic API.
-    Laeuft nur, wenn ANTHROPIC_API_KEY gesetzt ist (Do/So oder FORCE_CLAUDE=1).
-    Ergebnisse werden eingefroren in data/claude_adjust.json + data/ai_picks.csv."""
-    import os, urllib.request
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        return {}
-    today = datetime.date.today()
-    if today.weekday() not in (3, 6) and os.environ.get("FORCE_CLAUDE") != "1":
-        # Nur Donnerstag/Sonntag analysieren (Kosten sparen)
-        try:
-            return json.load(open("data/claude_adjust.json"))
-        except Exception:
-            return {}
-    try:
-        adjust = json.load(open("data/claude_adjust.json"))
-    except Exception:
-        adjust = {}
+def ki_protokoll(games_all, teams, model, season, path="data/ki_protokoll.csv"):
+    """Friert fuer jedes Spiel den Modell+KI-Tipp ein - im selben Moment wie den Modell-Pick.
 
-    upcoming = [g for g in sched if g["hs"] is None]
-    week = min((g["w"] for g in upcoming), default=None)
+    Die KI-Kontextanalyse (ai_context.py) liefert Elo-Anpassungen je Spiel. Sie
+    fliessen NICHT in die offiziellen Picks ein; deren Bilanz misst das Modell.
+    Damit sich trotzdem pruefen laesst, ob die Recherche etwas taugt, wird hier
+    zum Lock-Zeitpunkt festgehalten:
+
+        p_model   Heim-Siegwahrscheinlichkeit ohne KI
+        p_ki      Heim-Siegwahrscheinlichkeit mit den KI-Anpassungen dieses Moments
+        p_markt   entvigte Marktwahrscheinlichkeit Heim in diesem Moment
+        ha, aa    die verwendeten Anpassungen, ki_datum deren Stand
+
+    Eine Zeile wird geschrieben, sobald der Pick in vegas_duel.csv auf "fix" steht,
+    und danach nie wieder veraendert. Ausgewertet wird mit ki_test.py.
+    """
+    import csv, os
     try:
         with open("data/ai_context.json") as f:
-            ai_ctx = json.load(f).get("games", {})
-    except (FileNotFoundError, json.JSONDecodeError):
-        ai_ctx = {}
-    if week is None:
-        return adjust
-    candidates = []
-    for g in upcoming:
-        if g["w"] != week:
-            continue
-        p = predict_game(g, teams, model)
-        if p is None:
-            continue
-        fav_p = max(p, 1 - p)
-        key = f"{g['w']}-{g['a']}-{g['h']}"
-        old = adjust.get(key)
-        if old and (today - datetime.date.fromisoformat(old["date"])).days < 5:
-            continue
-        if fav_p < 0.65:                      # nur Swing-Spiele: da bewegen News am meisten
-            candidates.append((fav_p, key, g))
-    candidates = sorted(candidates)[:10]      # Kostendeckel: max 10 Spiele pro Lauf
-    print(f"Claude-Batch: analysiere {len(candidates)} Swing-Spiele der Woche {week}...")
-
-    for _, key, g in candidates:
-        hn, an = NAMES.get(g["h"], g["h"]), NAMES.get(g["a"], g["a"])
-        prompt = (f"Du bist der Kontext-Layer eines statistischen NFL-Vorhersagemodells. "
-                  f"Matchup: {hn} (Heim) gegen {an} (Auswaerts), Saison {season} Woche {g['w']}. "
-                  f"Recherchiere per Websuche knapp die AKTUELLE Lage beider Teams: Verletzungen/Inactives, "
-                  f"QB-Situation, Trainerwechsel, Form. Maximal 3 Suchen. "
-                  f"Uebersetze in Elo-Anpassungen zwischen -75 und +75 pro Team (0 = keine relevanten News). "
-                  f"Antworte am Ende AUSSCHLIESSLICH mit validem JSON ohne Markdown: "
-                  f'{{"home_adj": <int>, "away_adj": <int>, "summary": "<2 Saetze Deutsch>", "factors": ["<F1>", "<F2>"]}}')
-        msgs = [{"role": "user", "content": prompt}]
-        text = ""
-        try:
-            for _round in range(4):
-                body = json.dumps({"model": "claude-sonnet-4-6", "max_tokens": 1000,
-                                   "messages": msgs,
-                                   "tools": [{"type": "web_search_20250305", "name": "web_search"}]}).encode()
-                req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body,
-                    headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
-                             "content-type": "application/json"})
-                with urllib.request.urlopen(req, timeout=180) as r:
-                    data = json.loads(r.read())
-                if data.get("error"):
-                    raise RuntimeError(data["error"].get("message", "API-Fehler"))
-                msgs.append({"role": "assistant", "content": data.get("content", [])})
-                text += "\n".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
-                if data.get("stop_reason") == "pause_turn":
-                    continue
-                if '"home_adj"' in text and text.rfind("}") > text.find("{"):
-                    break
-                msgs.append({"role": "user", "content": "Gib jetzt AUSSCHLIESSLICH das geforderte JSON aus."})
-            clean = text.replace("```json", "").replace("```", "")
-            js = clean[clean.find("{"): clean.rfind("}") + 1]
-            import re as _re
-            m = _re.search(r"\{[\s\S]*\"home_adj\"[\s\S]*\}", clean)
-            if m:
-                js = m.group(0)
-            parsed = json.loads(js)
-            adjust[key] = {
-                "ha": max(-75, min(75, int(parsed.get("home_adj", 0)))),
-                "aa": max(-75, min(75, int(parsed.get("away_adj", 0)))),
-                "summary": str(parsed.get("summary", ""))[:400],
-                "factors": [str(f)[:150] for f in parsed.get("factors", [])][:3],
-                "date": today.isoformat(),
-            }
-            print(f"  {key}: H{adjust[key]['ha']:+d} / A{adjust[key]['aa']:+d}")
-        except Exception as e:
-            print(f"  {key}: uebersprungen ({e})")
-
-    with open("data/claude_adjust.json", "w") as f:
-        json.dump(adjust, f, ensure_ascii=False, separators=(",", ":"))
-
-    # Modell+KI-Picks separat einfrieren (fuer die A/B-Bilanz im Duell)
-    import csv, os as _os
-    ai_path = "data/ai_picks.csv"
-    ai_rows = {}
-    if _os.path.exists(ai_path):
-        with open(ai_path) as f:
+            ki = json.load(f).get("games", {})
+    except (FileNotFoundError, json.JSONDecodeError, AttributeError):
+        ki = {}
+    duell = {}
+    if os.path.exists("data/vegas_duel.csv"):
+        with open("data/vegas_duel.csv") as f:
             for r in list(csv.reader(f))[1:]:
-                if len(r) >= 2:
-                    ai_rows[r[0]] = r
-    for g in upcoming:
-        key = f"{g['w']}-{g['a']}-{g['h']}"
-        if key in ai_rows or key not in adjust:
+                if len(r) > 7:
+                    duell[r[0]] = r
+    zeilen = {}
+    if os.path.exists(path):
+        with open(path) as f:
+            for r in list(csv.reader(f))[1:]:
+                if r:
+                    zeilen[r[0]] = r
+    neu = 0
+    jetzt = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="minutes")
+    for _, g in games_all[games_all["season"] == season].iterrows():
+        key = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
+        if key in zeilen or pd.notna(g["home_score"]):
             continue
-        adj = adjust[key]
-        h2 = dict(teams.get(g["h"], {})); a2 = dict(teams.get(g["a"], {}))
-        if not h2 or not a2:
+        d = duell.get(key)
+        if not d or d[7] != "fix":
+            continue                              # erst mit dem Modell-Pick zusammen einfrieren
+        gg = {"h": g["home_team"], "a": g["away_team"],
+              "hr": int(g["home_rest"]) if pd.notna(g["home_rest"]) else 7,
+              "ar": int(g["away_rest"]) if pd.notna(g["away_rest"]) else 7,
+              "t": g["gametime"] if pd.notna(g["gametime"]) else ""}
+        adj = ki.get(key) or {}
+        ha, aa = int(adj.get("ha", 0) or 0), int(adj.get("aa", 0) or 0)
+        p_model = predict_game(gg, teams, model)
+        p_ki = predict_game(gg, teams, model, ha, aa)
+        p_markt = market_prob(g, g["home_team"])
+        if p_model is None or p_ki is None:
             continue
-        h2["elo"] += adj["ha"]; a2["elo"] += adj["aa"]
-        p = predict_game(g, {**teams, g["h"]: h2, g["a"]: a2}, model)
-        if p is None:
-            continue
-        ai_rows[key] = [key, g["h"] if p >= 0.5 else g["a"], today.isoformat()]
-    with open(ai_path, "w", newline="") as f:
+        zeilen[key] = [key, jetzt, adj.get("date", ""), ha, aa,
+                       f"{p_model:.4f}", f"{p_ki:.4f}",
+                       f"{p_markt:.4f}" if p_markt is not None else ""]
+        neu += 1
+    with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["key", "ai_pick", "locked"])
-        w.writerows(ai_rows.values())
-    return adjust
+        w.writerow(["key", "locked", "ki_datum", "ha", "aa", "p_model", "p_ki", "p_markt"])
+        w.writerows(zeilen.values())
+    if neu:
+        print(f"  KI-Protokoll: {neu} Spiele neu eingefroren ({len(zeilen)} insgesamt)")
 
 
-def ai_bilanz(games_all, season):
-    """Abrechnung der eingefrorenen Modell+KI-Picks."""
-    import csv, os as _os
-    if not _os.path.exists("data/ai_picks.csv"):
+def ki_bilanz(games_all, season, path="data/ki_protokoll.csv"):
+    """Laufende Abrechnung Modell gegen Modell+KI - nur Spiele, an denen die KI etwas geaendert hat.
+
+    Das ist ein Zwischenstand fuer die Seite, kein Test. Ob die KI traegt,
+    entscheidet ki_test.py - und erst bei genug Spielen.
+    """
+    import csv, os
+    if not os.path.exists(path):
         return None
-    rows = {}
-    with open("data/ai_picks.csv") as f:
+    prot = {}
+    with open(path) as f:
         for r in list(csv.reader(f))[1:]:
-            if len(r) >= 2:
-                rows[r[0]] = r[1]
-    n = hit = 0
+            if len(r) >= 7:
+                prot[r[0]] = r
+    n = m_hit = k_hit = wechsel = wechsel_k = 0
+    ll_m = ll_k = 0.0
     for _, g in games_all[games_all["season"] == season].iterrows():
         if pd.isna(g["home_score"]) or g["home_score"] == g["away_score"]:
             continue
         key = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
-        if key not in rows:
-            continue
-        winner = g["home_team"] if g["home_score"] > g["away_score"] else g["away_team"]
+        r = prot.get(key)
+        if not r or (int(r[3] or 0) == 0 and int(r[4] or 0) == 0):
+            continue                              # ohne Anpassung sind beide Tipps identisch
+        y = 1.0 if g["home_score"] > g["away_score"] else 0.0
+        pm, pk = float(r[5]), float(r[6])
         n += 1
-        if rows[key] == winner:
-            hit += 1
-    return {"n": n, "hit": hit} if n else None
+        m_hit += int((pm >= 0.5) == (y == 1.0))
+        k_hit += int((pk >= 0.5) == (y == 1.0))
+        ll_m -= y * math.log(max(pm, 1e-9)) + (1 - y) * math.log(max(1 - pm, 1e-9))
+        ll_k -= y * math.log(max(pk, 1e-9)) + (1 - y) * math.log(max(1 - pk, 1e-9))
+        if (pm >= 0.5) != (pk >= 0.5):
+            wechsel += 1
+            wechsel_k += int((pk >= 0.5) == (y == 1.0))
+    if not n:
+        return None
+    return {"n": n, "m": m_hit, "k": k_hit,
+            "ll_m": round(ll_m / n, 4), "ll_k": round(ll_k / n, 4),
+            "wechsel": wechsel, "wechsel_k": wechsel_k}
+
 
 if __name__ == "__main__":
     main()
