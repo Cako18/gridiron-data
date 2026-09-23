@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-09-22 · Saison 2026 · Modell trainiert auf 4030 Spielen (2026-09-22)
+Stand: 2026-09-23 · Saison 2026 · Modell trainiert auf 4030 Spielen (2026-09-23)
 
 ## Woche 3 – Picks
 
@@ -13,7 +13,7 @@ Stand: 2026-09-22 · Saison 2026 · Modell trainiert auf 4030 Spielen (2026-09-2
 - Texans über Colts – 52 % **[MÜNZWURF]**
 - Jaguars über Patriots – 59 %
 - Chiefs über Dolphins – 64 %
-- Giants über Titans – 74 % **[BANK]**
+- Giants über Titans – 72 % **[BANK]**
 - Bengals über Steelers – 57 % **[MÜNZWURF]**
 - Seahawks über Commanders – 67 %
 - 49ers über Cardinals – 83 % **[BANK]**
@@ -56,11 +56,11 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 - Bills: Ø 12.8 Siege · Playoffs 98 % · Division 84 %
 - 49ers: Ø 12.4 Siege · Playoffs 94 % · Division 57 %
-- Seahawks: Ø 11.4 Siege · Playoffs 84 % · Division 33 %
-- Bengals: Ø 11.1 Siege · Playoffs 88 % · Division 62 %
-- Eagles: Ø 10.9 Siege · Playoffs 82 % · Division 74 %
-- Jaguars: Ø 10.8 Siege · Playoffs 89 % · Division 81 %
-- Lions: Ø 10.3 Siege · Playoffs 65 % · Division 35 %
+- Seahawks: Ø 11.4 Siege · Playoffs 85 % · Division 33 %
+- Bengals: Ø 11.1 Siege · Playoffs 87 % · Division 62 %
+- Eagles: Ø 11.0 Siege · Playoffs 83 % · Division 76 %
+- Jaguars: Ø 10.9 Siege · Playoffs 89 % · Division 81 %
+- Lions: Ø 10.3 Siege · Playoffs 66 % · Division 35 %
 - Chiefs: Ø 10.2 Siege · Playoffs 77 % · Division 49 %
 
 ## Vegas-Duell
