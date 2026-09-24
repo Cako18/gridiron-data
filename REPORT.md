@@ -5,7 +5,7 @@ Stand: 2026-09-24 · Saison 2026 · Modell trainiert auf 4030 Spielen (2026-09-2
 ## Woche 3 – Picks
 
 **2026-09-24**
-- Packers über Falcons – 63 %
+- Packers über Falcons – 63 % · KI ▼ 59 %
 **2026-09-27**
 - Bills über Chargers – 82 % **[BANK]**
 - Panthers über Browns – 51 % **[MÜNZWURF]**
