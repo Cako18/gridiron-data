@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-09-26 · Saison 2026 · Modell trainiert auf 4031 Spielen (2026-09-26)
+Stand: 2026-09-27 · Saison 2026 · Modell trainiert auf 4031 Spielen (2026-09-27)
 
 ## Woche 3 – Picks
 
@@ -20,18 +20,16 @@ Stand: 2026-09-26 · Saison 2026 · Modell trainiert auf 4031 Spielen (2026-09-2
 - Saints über Raiders – 65 %
 - Broncos über Rams – 53 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
 **2026-09-28**
-- Bears über Eagles – 53 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
+- Eagles über Bears – 57 % **[MÜNZWURF]**
 
-5 BANK-Picks (gemessen 76,9 %) · 2 Münzwürfe (59,2 %) · 3 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+5 BANK-Picks (gemessen 76,9 %) · 3 Münzwürfe (59,2 %) · 2 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
 - ▲ Falcons: +47 (jetzt 1456)
 - ▼ Packers: -47 (jetzt 1466)
-- ▼ Chargers: -39 (jetzt 1444)
-- ▲ Raiders: +39 (jetzt 1419)
-- ▲ Cowboys: +26 (jetzt 1461)
-- ▼ Commanders: -26 (jetzt 1428)
+- ▲ Rams: +16 (jetzt 1582)
+- ▼ Giants: -16 (jetzt 1428)
 
 ## Wochenauswertung – Woche 3
 
@@ -47,14 +45,14 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- Seahawks: Ø 12.6 Siege · Playoffs 95 % · Division 59 %
-- Bills: Ø 12.3 Siege · Playoffs 97 % · Division 79 %
-- 49ers: Ø 11.6 Siege · Playoffs 87 % · Division 31 %
-- Vikings: Ø 11.5 Siege · Playoffs 86 % · Division 57 %
-- Eagles: Ø 11.4 Siege · Playoffs 89 % · Division 83 %
-- Bengals: Ø 11.0 Siege · Playoffs 87 % · Division 57 %
-- Jaguars: Ø 10.9 Siege · Playoffs 89 % · Division 81 %
-- Lions: Ø 10.3 Siege · Playoffs 66 % · Division 27 %
+- Seahawks: Ø 12.8 Siege · Playoffs 97 % · Division 61 %
+- Bills: Ø 12.5 Siege · Playoffs 97 % · Division 79 %
+- Vikings: Ø 11.6 Siege · Playoffs 89 % · Division 63 %
+- 49ers: Ø 11.6 Siege · Playoffs 89 % · Division 30 %
+- Jaguars: Ø 11.1 Siege · Playoffs 90 % · Division 82 %
+- Bengals: Ø 11.0 Siege · Playoffs 87 % · Division 56 %
+- Eagles: Ø 10.9 Siege · Playoffs 84 % · Division 76 %
+- Lions: Ø 10.5 Siege · Playoffs 74 % · Division 33 %
 
 ## Vegas-Duell
 
