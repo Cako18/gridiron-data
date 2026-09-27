@@ -14,8 +14,8 @@ Stand: 2026-09-27 · Saison 2026 · Modell trainiert auf 4031 Spielen (2026-09-2
 - Giants über Titans – 71 % **[BANK]** · KI ▼ 66 %
 - Bengals über Steelers – 59 % · KI • 59 %
 - Seahawks über Commanders – 81 % **[BANK]** · KI ▲ 85 %
-- 49ers über Cardinals – 79 % **[BANK]** · KI ▼ 78 %
-- Vikings über Buccaneers – 66 % · KI ▲ 69 %
+- 49ers über Cardinals – 79 % **[BANK]** · KI • 79 %
+- Vikings über Buccaneers – 66 % · KI ▲ 70 %
 - Ravens über Cowboys – 57 % **[MÜNZWURF]** · KI • 57 %
 - Saints über Raiders – 65 % · KI • 65 %
 - Broncos über Rams – 53 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI • 53 %
