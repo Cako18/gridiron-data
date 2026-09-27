@@ -5,22 +5,22 @@ Stand: 2026-09-27 · Saison 2026 · Modell trainiert auf 4031 Spielen (2026-09-2
 ## Woche 3 – Picks
 
 **2026-09-27**
-- Bills über Chargers – 85 % **[BANK]**
-- Browns über Panthers – 52 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
-- Lions über Jets – 81 % **[BANK]**
-- Texans über Colts – 52 % **[MÜNZWURF]**
-- Jaguars über Patriots – 58 %
-- Chiefs über Dolphins – 68 %
-- Giants über Titans – 71 % **[BANK]**
-- Bengals über Steelers – 59 %
-- Seahawks über Commanders – 81 % **[BANK]**
-- 49ers über Cardinals – 79 % **[BANK]**
-- Vikings über Buccaneers – 66 %
-- Ravens über Cowboys – 57 % **[MÜNZWURF]**
-- Saints über Raiders – 65 %
-- Broncos über Rams – 53 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
+- Bills über Chargers – 85 % **[BANK]** · KI • 85 %
+- Browns über Panthers – 52 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI • 52 %
+- Lions über Jets – 81 % **[BANK]** · KI • 81 %
+- Texans über Colts – 52 % **[MÜNZWURF]** · KI • 52 %
+- Jaguars über Patriots – 58 % · KI • 58 %
+- Chiefs über Dolphins – 68 % · KI • 68 %
+- Giants über Titans – 71 % **[BANK]** · KI ▼ 66 %
+- Bengals über Steelers – 59 % · KI • 59 %
+- Seahawks über Commanders – 81 % **[BANK]** · KI ▲ 85 %
+- 49ers über Cardinals – 79 % **[BANK]** · KI ▼ 78 %
+- Vikings über Buccaneers – 66 % · KI ▲ 69 %
+- Ravens über Cowboys – 57 % **[MÜNZWURF]** · KI • 57 %
+- Saints über Raiders – 65 % · KI • 65 %
+- Broncos über Rams – 53 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI • 53 %
 **2026-09-28**
-- Eagles über Bears – 57 % **[MÜNZWURF]**
+- Eagles über Bears – 57 % **[MÜNZWURF]** · KI ▲ 64 %
 
 5 BANK-Picks (gemessen 76,9 %) · 3 Münzwürfe (59,2 %) · 2 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
