@@ -45,5 +45,5 @@ key,model_pick,vegas_pick,locked,p_model,p_mkt_lock,edge_src,status
 3-MIN-TB,MIN,MIN,2026-09-27T17:00+00:00,0.6598,0.5222,elo_diff,fix
 3-BAL-DAL,BAL,BAL,2026-09-27T17:00+00:00,0.5666,0.6000,elo_diff,fix
 3-LV-NO,NO,NO,2026-09-27T17:00+00:00,0.6550,0.6311,elo_diff,fix
-3-LA-DEN,DEN,LA,2026-09-27T19:15+00:00,0.5272,0.4574,qb_diff,offen
-3-PHI-CHI,PHI,PHI,2026-09-27T19:15+00:00,0.5659,0.6573,inj_diff,offen
+3-LA-DEN,DEN,LA,2026-09-27T19:47+00:00,0.5272,0.4574,qb_diff,offen
+3-PHI-CHI,PHI,PHI,2026-09-27T19:47+00:00,0.5659,0.6573,inj_diff,offen
