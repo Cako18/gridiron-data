@@ -79,6 +79,8 @@ das Bundle zur Laufzeit `React is not defined`.
 | `pruef/alle.mjs` | Rendern alle sieben Tabs ohne Konsolenfehler? | vor jedem scharfen Build |
 | `pruef/qb.mjs` | QB-Ranking mit Daten und mit altem Export ohne `qbs` | nach Aenderungen am QB-Tab |
 | `pruef/vergleich2.mjs` | Zeigen alte und neue Seite bei gleichem Feed dasselbe? | bis zur Umstellung |
+| `../schein_test.py` | Schlaegt die Auswahl des Wochenscheins den stumpfen Vergleich? | ab etwa 40 abgerechneten Wetten |
+| `../pruefung.py` | Stimmt die Merkmalsauswahl noch? Ablation und Kalibrierung, walk-forward | laeuft monatlich per Workflow |
 | `../live_test.py` | Trifft die Live-Formel echte Spielverlaeufe? | nach Aenderungen an `liveWP()` |
 
 Alle `.mjs`-Tests brauchen `npm install playwright` und die Daten aus
@@ -113,6 +115,7 @@ Die App liest zwei Dateien von `raw.githubusercontent.com`:
 | `teams{}` | `elo`, `off_epa`, `def_epa`, `cpoe`, `inj`, `qb`, `qb_new`, `qb_name` |
 | `picks{}` | eingefrorene Prognosen: `pick`, `p`, `vp`, `pm`, `src`, `st` (`fix` = festgeschrieben) |
 | `analysis{}` | je Spiel: `tags`, `sd`, `conf`, `edge`, `arch_hit` |
+| `schein{}` | Wochenschein: `tipps[]` (`pick`, `p`, `p_markt`, `quote`, `ev`, `ev_markt`, `einsatz`, `gruende[]`, `fix`), `ev_summe`, `ev_markt_summe`, `regeln`, `bilanz` (schein gegen vergleich) |
 | `qbs{}` | je Team `starter` und `backup` (`n` Name, `r` Modellwert, `roh` Rohwert, `starts`, `neu`, `form`, `stil`), `ausfall` = Siegchance mit minus ohne Starter, `p_mit` |
 | `duel{}` | Bilanz gegen den Markt, Kalibrierung, CLV, `ki` = Zwischenstand Modell gegen Modell+KI |
 | `line_moves{}`, `depth{}`, `lineups{}`, `proj{}` | Zusatzdaten der uebrigen Tabs |

@@ -24,6 +24,15 @@ Selbstlernendes NFL-Vorhersagesystem mit öffentlich nachprüfbarer Bilanz.
   Meldet der Verletzungsbericht der anstehenden Woche den Starter als „Out“,
   rechnet das Modell automatisch mit dem Vertreter; der Starter bleibt
   durchgestrichen im Ranking stehen.
+- **Schein der Woche:** vorgerechnete Einzelwetten (nie Kombi), nur dort, wo
+  Modell und Markt denselben Sieger sehen, Einsatz nach Viertel-Kelly bei 2 %
+  gedeckelt. Zu jedem Schein stehen beide Erwartungswerte: der nach dem Modell
+  und der nach der Marktquote. Der zweite ist fast immer negativ – das ist die
+  Marge des Buchmachers. Abgerechnet wird gegen einen stumpfen Vergleich (jeder
+  Markt-Favorit, flacher Einsatz), damit messbar ist, ob die Auswahl etwas kann.
+- **Monatliche Selbstprüfung:** wiederholt die Ablation und die Kalibrierung mit
+  den Daten von heute und schreibt `PRUEFUNG.md`. Sie ändert das Modell *nicht*;
+  eine Empfehlung gibt es nur, wenn das 95 %-Intervall die Null nicht enthält.
 - **Depth Charts** mit Injury-Status, Live-Wahrscheinlichkeiten während der
   Spiele und ein Tippschein-Rechner mit Erwartungswert-Logik
 
@@ -36,6 +45,23 @@ Selbstlernendes NFL-Vorhersagesystem mit öffentlich nachprüfbarer Bilanz.
 | Ist das Modell zu vorsichtig? | Nein. Gegen die Ergebnisse ist es geeicht; es ist weniger sicher als der Markt, weil es weniger weiß. | – |
 | Trifft die Live-Kurve echte Spielverläufe? | Seit der Korrektur im September 2026 besser: sie startet beim Anpfiff genau bei der Prognose. | `live_test.py` |
 | Bringt die KI-Recherche etwas? | Offen – wird seit Woche 3 der Saison 2026 gemessen. | `ki_test.py` |
+
+## Lernt das System dazu?
+
+Zum Teil, und es lohnt sich, den Unterschied zu kennen.
+
+**Aktualisiert sich laufend:** Elo nach jedem Spiel, QB-Ratings als gleitender
+Mittelwert, Verletzungen und Quoten täglich. Das Modell wird jede Nacht neu
+trainiert.
+
+**Wird dadurch nicht besser:** Das Training umfasst rund 4000 Spiele, pro Woche
+kommen 16 dazu – 0,4 % mehr Daten. Die Koeffizienten bewegen sich in der vierten
+Nachkommastelle. Die Eingangswerte sind frischer, die Rechenvorschrift bleibt
+gleich gut.
+
+**Was wirklich dazulernt**, sind die Messungen daneben: `ki_protokoll.csv` misst
+die KI-Recherche, `schein_protokoll.csv` den Wochenschein, `PRUEFUNG.md` monatlich
+die Merkmalsauswahl. Daraus folgen Änderungen – von Hand, mit Begründung.
 
 ## Automatik
 

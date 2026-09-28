@@ -7,6 +7,7 @@ Laeuft per GitHub Action:
 4. Schreibt data/app_data.json, data/model.json, data/elo_history.csv, REPORT.md
 """
 import io
+import os
 import sys
 import json
 import math
@@ -486,6 +487,14 @@ def main():
     df["y"] = (df["home_score"] > df["away_score"]).astype(int)
     df = df[df["home_score"] != df["away_score"]].dropna(subset=FEATURE_ORDER)
 
+    # Fuer die monatliche Selbstpruefung (pruefung.py): dieselbe Trainings-Matrix,
+    # die das Modell sieht, als Datei. Nur auf Anforderung, sonst passiert nichts.
+    if os.environ.get("DUMP_FRAME"):
+        spalten = ["season", "week_i", "home_team", "away_team", "y",
+                   "home_moneyline", "away_moneyline"] + FEATURE_ORDER
+        df[[c for c in spalten if c in df.columns]].to_csv(os.environ["DUMP_FRAME"], index=False)
+        print(f"  Trainings-Matrix geschrieben: {os.environ['DUMP_FRAME']} ({len(df)} Spiele)")
+
     akt = [FEATURE_ORDER.index(f) for f in AKTIV]
 
     def voll_koef(lr_):
@@ -686,10 +695,15 @@ def main():
                             pl_alle if pframes else None, model_now, current_season)
     print(f"  QB-Ranking: {len(qb_board)} Teams")
 
+    schein = wochenschein(games_all, teams, model_now, current_season, analysis, line_moves)
+    if schein:
+        print(f"  Wochenschein: {len(schein['tipps'])} Tipps fuer Woche {schein['woche']}"
+              + (f", Bilanz {schein['bilanz']['schein']['n']} abgerechnet" if schein["bilanz"]["schein"]["n"] else ""))
+
     out = {"generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
            "season": current_season, "last_result": str(games["gameday"].max()),
            "teams": teams, "schedule": sched, "proj": proj, "duel": duel,
-           "kiadj": kiadj, "qbs": qb_board, "picks": frozen_picks, "analysis": analysis, "archetypes": ARCHETYPES,
+           "kiadj": kiadj, "qbs": qb_board, "schein": schein, "picks": frozen_picks, "analysis": analysis, "archetypes": ARCHETYPES,
            "lineups": lineups, "depth": depth, "line_moves": line_moves, "lineup_season": lineup_season,
            "arch_corr": ARCH_CORR, "edge_sources": EDGE_SOURCES}
     if not sanity_checks(out, model_now, sched, teams, proj):
@@ -991,6 +1005,205 @@ def track_lines(games_all, season):
                           "move": round(move, 1), "since": hist[0][1][:10],
                           "steps": len(hist)}
     return moves
+
+
+# ---------------------------------------------------------------- Wochenschein
+#
+# Der Schein ist eine RECHNUNG, keine Empfehlung. Was er tut und was bewusst
+# nicht, steht hier, damit es spaeter niemand aus dem Code herauslesen muss:
+#
+#  * Gesetzt wird nur, wo das Modell mit dem Markt EINIG ist. Gegen den Markt
+#    lag das Modell walk-forward 2016-2025 nur in 42,7 % richtig (372 Spiele) -
+#    solche Tipps gehoeren nicht auf einen Schein, so verlockend die Quote ist.
+#  * Einzelwetten statt Kombi. Bei einer Kombi multipliziert sich die Marge des
+#    Buchmachers mit jedem Tipp; vier Einzelwetten haben denselben Einsatz und
+#    eine sehr viel kleinere Streuung.
+#  * Einsatz nach Viertel-Kelly, gedeckelt bei 2 % der Rechengroesse. Volles
+#    Kelly ist auf geschaetzten Wahrscheinlichkeiten regelmaessig ruinoes.
+#  * Zu jedem Tipp steht BEIDES: der Erwartungswert nach dem Modell und der
+#    nach der Marktquote. Der zweite ist fast immer negativ - das ist die Marge
+#    des Buchmachers. Die Tipps mit dem groessten Modell-EV sind genau die, bei
+#    denen das Modell am weitesten vom Markt abweicht; gemessen ist der Markt
+#    bisher besser. Wer nur auf die grosse Zahl schaut, liest den Schein falsch.
+#  * Der Schein wird je Tipp eingefroren, sobald das Spiel in Reichweite ist -
+#    genau wie die Picks. Abgerechnet wird gegen einen stumpfen Vergleich:
+#    jeder Favorit des Marktes dieser Woche mit gleichem Einsatz. Erst dieser
+#    Vergleich zeigt, ob die Auswahl etwas kann. Auswertung: schein_test.py.
+#
+# Der erwartete Wert steht und faellt damit, dass die Modellwahrscheinlichkeit
+# naeher an der Wahrheit liegt als die Quote. Genau das ist bisher NICHT belegt.
+BANK = 100.0             # Rechengroesse fuer die Einsaetze, kein echtes Geld
+KELLY_ANTEIL = 0.25      # Viertel-Kelly
+MAX_EINSATZ = 0.02       # hoechstens 2 % der Rechengroesse je Tipp
+SCHEIN_MAX = 4           # mehr als vier Tipps je Woche sind keine Auswahl mehr
+MIN_EV = 0.02            # unter 2 % Erwartungswert lohnt der Aufwand nicht
+
+
+def schein_gruende(key, g, pick, p, quote, teams, analysis, line_moves, ki):
+    """Warum dieser Tipp - in Saetzen, die man ohne Modell versteht."""
+    gr = []
+    an = (analysis or {}).get(key) or {}
+    if p >= 0.7:
+        gr.append(f"Klarer Favorit: {pct_de(p)} Siegwahrscheinlichkeit.")
+    elif p >= 0.58:
+        gr.append(f"Solider Favorit: {pct_de(p)}.")
+    else:
+        gr.append(f"Enges Spiel, die Quote ({quote:.2f}) zahlt es trotzdem.")
+    if an.get("conf"):
+        gr.append(f"Vertrauen des Modells: {an['conf']} (Streuung ±{an.get('sd', '?')}).")
+    t_pick = (teams or {}).get(pick) or {}
+    t_geg = (teams or {}).get(g["home_team"] if pick == g["away_team"] else g["away_team"]) or {}
+    v = t_geg.get("qb_verletzt")
+    if v and v.get("ersetzt"):
+        gr.append(f"Beim Gegner fehlt {v['n']} – das Modell rechnet bereits mit dem Vertreter.")
+    v2 = t_pick.get("qb_verletzt")
+    if v2:
+        gr.append(("Achtung: " if not v2.get("ersetzt") else "") +
+                  f"Beim getippten Team steht {v2['n']} im Verletzungsbericht ({v2['status']}).")
+    lm = (line_moves or {}).get(key)
+    # "move" ist die Veraenderung der Markt-Siegwahrscheinlichkeit des HEIMteams
+    # in Prozentpunkten seit Eroeffnung der Quote.
+    if lm and abs(lm.get("move", 0) or 0) >= 1.5:
+        fuer_uns = (lm["move"] > 0) == (pick == g["home_team"])
+        gr.append(f"Der Markt hat sich seit Eröffnung um {abs(lm['move']):.1f} Punkte "
+                  + ("auf unsere Seite" if fuer_uns else "auf die Gegenseite") + " bewegt.")
+    kg = (ki or {}).get(key) or {}
+    if kg.get("summary"):
+        gr.append(f"KI-Recherche: {kg['summary']}")
+    return gr[:4]
+
+
+def pct_de(p):
+    return f"{p * 100:.0f} %"
+
+
+def wochenschein(games_all, teams, model, season, analysis, line_moves,
+                 path="data/schein_protokoll.csv"):
+    """Baut den Wochenschein, friert ihn tippweise ein und rechnet ihn ab."""
+    import csv, os
+    try:
+        with open("data/ai_context.json") as f:
+            ki = json.load(f).get("games", {})
+    except (FileNotFoundError, json.JSONDecodeError, AttributeError):
+        ki = {}
+
+    cur = games_all[games_all["season"] == season].copy()
+    offen = cur[cur["home_score"].isna()]
+    if not len(offen):
+        return None
+    woche = int(pd.to_numeric(offen["week"], errors="coerce").min())
+    spiele = cur[pd.to_numeric(cur["week"], errors="coerce") == woche]
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    # ---------- eingefrorene Zeilen laden ----------
+    KOPF = ["woche", "key", "art", "pick", "p", "quote", "ev", "einsatz", "locked", "p_markt"]
+    zeilen = {}
+    if os.path.exists(path):
+        with open(path) as f:
+            for r in list(csv.reader(f))[1:]:
+                if len(r) >= len(KOPF) - 1:
+                    zeilen[(r[0], r[1], r[2])] = r
+
+    kandidaten, vergleich = [], []
+    for _, g in spiele.iterrows():
+        key = f"{woche}-{g['away_team']}-{g['home_team']}"
+        gg = {"h": g["home_team"], "a": g["away_team"],
+              "hr": int(g["home_rest"]) if pd.notna(g["home_rest"]) else 7,
+              "ar": int(g["away_rest"]) if pd.notna(g["away_rest"]) else 7,
+              "t": g["gametime"] if pd.notna(g["gametime"]) else ""}
+        p_home = predict_game(gg, teams, model)
+        dh, da = ml_to_dec(g["home_moneyline"]), ml_to_dec(g["away_moneyline"])
+        if p_home is None or not dh or not da:
+            continue
+        p_mkt_home = market_prob(g, g["home_team"])
+        pick = g["home_team"] if p_home >= 0.5 else g["away_team"]
+        mkt_pick = None if p_mkt_home is None else (g["home_team"] if p_mkt_home >= 0.5 else g["away_team"])
+        p = p_home if pick == g["home_team"] else 1 - p_home
+        quote = dh if pick == g["home_team"] else da
+        ev = p * quote - 1
+        p_m = None if p_mkt_home is None else (p_mkt_home if pick == g["home_team"] else 1 - p_mkt_home)
+        ev_markt = None if p_m is None else p_m * quote - 1
+        # Vergleichsschein: stumpf jeder Favorit des Marktes, gleicher Einsatz
+        if mkt_pick:
+            vergleich.append({"key": key, "pick": mkt_pick,
+                              "quote": dh if mkt_pick == g["home_team"] else da,
+                              "einsatz": 1.0})
+        if mkt_pick and pick != mkt_pick:
+            continue                               # gegen den Markt: gemessen ein Verlustgeschaeft
+        if ev < MIN_EV or quote <= 1.01:
+            continue
+        f_kelly = (p * quote - 1) / (quote - 1)
+        einsatz = round(min(KELLY_ANTEIL * f_kelly, MAX_EINSATZ) * BANK * 2) / 2
+        if einsatz < 0.5:
+            continue
+        ko = kickoff_utc(g)
+        kandidaten.append({
+            "key": key, "pick": pick, "gegner": g["home_team"] if pick == g["away_team"] else g["away_team"],
+            "heim": pick == g["home_team"], "p": round(p, 4), "quote": quote,
+            "ev": round(ev, 4), "ev_markt": None if ev_markt is None else round(ev_markt, 4),
+            "p_markt": None if p_m is None else round(p_m, 4), "einsatz": einsatz,
+            "ko": ko.isoformat(timespec="minutes") if ko else "",
+            "fix": ko is not None and (ko - now).total_seconds() <= LOCK_WINDOW_H * 3600,
+            "gruende": schein_gruende(key, g, pick, p, quote, teams, analysis, line_moves, ki),
+        })
+
+    kandidaten.sort(key=lambda x: -x["ev"])
+    tipps = kandidaten[:SCHEIN_MAX]
+
+    # ---------- einfrieren: jeder Tipp, sobald sein Spiel in Reichweite ist ----------
+    jetzt = now.isoformat(timespec="minutes")
+    neu = 0
+    for t in tipps:
+        k = (str(woche), t["key"], "schein")
+        if t["fix"] and k not in zeilen:
+            zeilen[k] = [str(woche), t["key"], "schein", t["pick"], f"{t['p']:.4f}",
+                         f"{t['quote']:.2f}", f"{t['ev']:.4f}", f"{t['einsatz']:.2f}", jetzt,
+                         f"{t['p_markt']:.4f}" if t["p_markt"] is not None else ""]
+            neu += 1
+    for v in vergleich:
+        k = (str(woche), v["key"], "vergleich")
+        g = spiele[spiele.apply(lambda r, kk=v["key"]: f"{woche}-{r['away_team']}-{r['home_team']}" == kk, axis=1)]
+        ko = kickoff_utc(g.iloc[0]) if len(g) else None
+        if ko is not None and (ko - now).total_seconds() <= LOCK_WINDOW_H * 3600 and k not in zeilen:
+            zeilen[k] = [str(woche), v["key"], "vergleich", v["pick"], "", f"{v['quote']:.2f}", "",
+                         f"{v['einsatz']:.2f}", jetzt, ""]
+            neu += 1
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(KOPF)
+        for k in sorted(zeilen, key=lambda x: (int(x[0]), x[2], x[1])):
+            w.writerow(zeilen[k])
+    if neu:
+        print(f"  Schein: {neu} Zeilen eingefroren (Woche {woche})")
+
+    # ---------- Bilanz ueber alle abgerechneten Zeilen ----------
+    erg = {}
+    for _, g in cur[cur["home_score"].notna()].iterrows():
+        k = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
+        erg[k] = (g["home_team"] if g["home_score"] > g["away_score"]
+                  else g["away_team"] if g["away_score"] > g["home_score"] else None)
+    bilanz = {}
+    for art in ("schein", "vergleich"):
+        eins = gew = n = tr = 0.0
+        for (w_, key, a), r in zeilen.items():
+            if a != art or key not in erg or erg[key] is None:
+                continue
+            e = float(r[7]); q = float(r[5])
+            eins += e; n += 1
+            if r[3] == erg[key]:
+                gew += e * q; tr += 1
+        bilanz[art] = {"n": int(n), "treffer": int(tr), "einsatz": round(eins, 2),
+                       "zurueck": round(gew, 2),
+                       "roi": round((gew - eins) / eins, 4) if eins else None}
+
+    ev_summe = round(sum(t["ev"] * t["einsatz"] for t in tipps), 2)
+    ev_markt_summe = round(sum((t["ev_markt"] or 0) * t["einsatz"] for t in tipps), 2)
+    return {"woche": woche, "stand": jetzt, "tipps": tipps,
+            "ev_summe": ev_summe, "ev_markt_summe": ev_markt_summe,
+            "einsatz_summe": round(sum(t["einsatz"] for t in tipps), 2),
+            "regeln": {"bank": BANK, "kelly": KELLY_ANTEIL, "max": MAX_EINSATZ,
+                       "min_ev": MIN_EV, "max_tipps": SCHEIN_MAX},
+            "bilanz": bilanz, "vergleich_n": len(vergleich)}
 
 
 def vegas_duel(games_all, teams, model, season):

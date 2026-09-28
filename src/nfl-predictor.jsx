@@ -1414,6 +1414,105 @@ function risikoKlasse(quote) {
   return { id: "out", label: "Aussenseiter", farbe: C.red };
 }
 
+/** Der vorgerechnete Wochenschein aus der Pipeline. */
+function Wochenschein({ schein }) {
+  if (!schein || !schein.tipps || !schein.tipps.length) {
+    return (
+      <p style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted, lineHeight: 1.8, margin: "0 0 8px" }}>
+        Diese Woche kommt kein Tipp durch die Regeln. Das ist eine Aussage, kein Fehler.
+      </p>
+    );
+  }
+  const b = schein.bilanz || {};
+  const roi = (x) => (x && x.roi != null ? `${x.roi > 0 ? "+" : ""}${(x.roi * 100).toFixed(1)} %` : "–");
+
+  return (
+    <div>
+      <div className="cako-rein" style={{
+        borderRadius: 14, overflow: "hidden", border: `1px solid ${C.line}`,
+        background: `linear-gradient(135deg, ${C.surface2} 0%, ${C.surface} 100%)`, marginBottom: 12,
+      }}>
+        <div style={{
+          display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap",
+          padding: "11px 14px", borderBottom: `1px solid ${C.line}`, background: "rgba(0,0,0,0.18)",
+        }}>
+          <span style={{ fontFamily: FONT.head, fontWeight: 800, fontStyle: "italic", fontSize: 19,
+                         letterSpacing: "0.04em", textTransform: "uppercase", color: C.text }}>
+            Woche {schein.woche}
+          </span>
+          <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted }}>
+            {schein.tipps.length} Einzelwetten &middot; {schein.einsatz_summe} von {schein.regeln.bank} Einheiten im Einsatz
+          </span>
+        </div>
+
+        {schein.tipps.map((t) => (
+          <div key={t.key} style={{ padding: "11px 14px", borderBottom: `1px solid ${C.line}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+              <TeamChip code={t.pick} gross={38} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: FONT.head, fontWeight: 700, fontSize: 19, textTransform: "uppercase",
+                              color: C.text, lineHeight: 1.1 }}>
+                  {namensTeile(t.pick)[1]}
+                  {t.fix ? <Marke text="FIX" farbe={C.muted} /> : null}
+                </div>
+                <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>
+                  {t.heim ? "gegen" : "bei"} {name(t.gegner)} &middot; Einsatz {t.einsatz.toFixed(1)}
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 24, color: C.gold, lineHeight: 1 }}>
+                  {t.quote.toFixed(2)}
+                </div>
+                <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 3 }}>
+                  Modell {pct(t.p)}
+                </div>
+              </div>
+            </div>
+            <ul style={{ margin: "8px 0 0", paddingLeft: 16, fontFamily: FONT.body, fontSize: 12,
+                         color: C.text2, lineHeight: 1.55 }}>
+              {t.gruende.map((gr, i) => <li key={i} style={{ marginBottom: 2 }}>{gr}</li>)}
+            </ul>
+          </div>
+        ))}
+
+        {/* Die beiden Erwartungswerte nebeneinander - das ist der ganze Punkt. */}
+        <div style={{ display: "flex", gap: 8, padding: "12px 14px" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              EV nach Modell
+            </div>
+            <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 26, color: schein.ev_summe > 0 ? C.green : C.red }}>
+              {schein.ev_summe > 0 ? "+" : ""}{schein.ev_summe.toFixed(2)}
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: FONT.mono, fontSize: 9, color: C.muted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              EV nach Marktquote
+            </div>
+            <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 26, color: schein.ev_markt_summe > 0 ? C.green : C.red }}>
+              {schein.ev_markt_summe > 0 ? "+" : ""}{schein.ev_markt_summe.toFixed(2)}
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: "0 14px 13px", fontFamily: FONT.body, fontSize: 12, color: C.text2, lineHeight: 1.55 }}>
+          Der Unterschied zwischen beiden Zahlen ist die Behauptung, das Modell wisse mehr als die Quote.
+          Genau das ist bisher nicht belegt. Rechnet man mit der Quote, verliert jeder dieser Tipps
+          im Schnitt rund 4 % &mdash; das ist die Marge des Buchmachers.
+        </div>
+      </div>
+
+      {b.schein && b.schein.n > 0 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <Kachel titel="Schein" wert={roi(b.schein)} farbe={b.schein.roi > 0 ? C.green : C.red}
+                  unter={`${b.schein.treffer}/${b.schein.n} · ${b.schein.zurueck.toFixed(1)} von ${b.schein.einsatz.toFixed(1)} zurück`} />
+          <Kachel titel="Alle Favoriten" wert={roi(b.vergleich)} farbe={b.vergleich.roi > 0 ? C.green : C.red}
+                  unter={`${b.vergleich.treffer}/${b.vergleich.n} flach gesetzt`} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TippscheinTab({ data, model }) {
   const wochen = useMemo(
     () => [...new Set(data.schedule.filter((g) => g.hs === null).map((g) => g.w))].sort((a, b) => a - b),
@@ -1469,6 +1568,13 @@ function TippscheinTab({ data, model }) {
 
   return (
     <div style={{ padding: "14px 16px 40px" }}>
+      <Abschnitt titel="Schein der Woche"
+                 hinweis="Vorgerechnet aus den Regeln unten: nur Tipps, bei denen Modell und Markt denselben Sieger sehen, Einzelwetten statt Kombi, Einsatz gedeckelt bei 2 % der Rechengröße. Einheiten, kein Geld.">
+        <Wochenschein schein={data.schein} />
+      </Abschnitt>
+
+      <Abschnitt titel="Selbst zusammenstellen"
+                 hinweis="Hier kannst du jede Woche eigene Tipps anklicken und den Schein durchrechnen lassen.">
       <WochenWahl wochen={wochen.slice(0, 8)} woche={woche} rand="2px 0 10px"
                   setWoche={(w) => { setWoche(w); setGewaehlt(new Set()); }} />
 
@@ -1643,6 +1749,7 @@ function TippscheinTab({ data, model }) {
               </>}
         </div>
       )}
+      </Abschnitt>
     </div>
   );
 }
