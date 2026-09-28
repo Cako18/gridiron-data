@@ -12,10 +12,15 @@ on:
     - cron: "13 6 * * *"
 
     # --- Sonntag ---
+    # Zwei Laeufe je Lock-Fenster statt einem. Gemessener Verzug am 27.09.2026:
+    # 2,6 h beim 09:19-Lauf, 0,7 h beim 16:19-Lauf. Ein einzelner Termin kann
+    # also je nach Tagesform hinter den Lock rutschen; der zweite faengt das ab.
     # vor dem Lock der 13:00-ET-Spiele (Anpfiff 17:00 UTC, Lock 14:30 UTC)
     - cron: "19 9 * * 0"
+    - cron: "19 11 * * 0"
     # vor dem Lock der 16:05/16:25-ET-Spiele (Lock ca. 17:35 UTC)
     - cron: "19 12 * * 0"
+    - cron: "19 14 * * 0"
     # vor dem Lock des Sonntagabendspiels (Anpfiff 00:20 UTC Mo, Lock 21:50 UTC)
     - cron: "19 16 * * 0"
 

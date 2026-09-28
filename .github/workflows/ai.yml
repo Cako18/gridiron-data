@@ -10,10 +10,14 @@ on:
   schedule:
     # Do 12:23 UTC - nur das Donnerstagsspiel (AI_MAX_DAYS=1), Lock Do 21:50 UTC
     - cron: "23 12 * * 4"
-    # So 08:23 UTC - Hauptlauf fuer den Sonntag, Lock der Nachmittagsspiele 14:30 UTC
-    - cron: "23 8 * * 0"
-    # So 15:37 UTC - Nachmittagsspiele sind eingefroren, nur Abend-/Nachtspiel offen
-    - cron: "37 15 * * 0"
+    # So 04:23 UTC - Hauptlauf fuer den Sonntag, Lock der Nachmittagsspiele 14:30 UTC.
+    # Gemessen am 27.09.2026: der Lauf startete erst 14:06 UTC, also 5,7 h zu spaet -
+    # drei Stunden vor Anpfiff. Deshalb vier Stunden nach vorn gezogen.
+    - cron: "23 4 * * 0"
+    # So 12:37 UTC - vor dem Lock der 16:25-ET-Spiele (17:55 UTC). Der alte Termin
+    # 15:37 UTC lief am 27.09. erst um 19:15 UTC, da waren die Nachmittagsspiele
+    # laengst eingefroren; nur das Abendspiel hatte noch etwas davon.
+    - cron: "37 12 * * 0"
   workflow_dispatch: {}
 
 permissions:
