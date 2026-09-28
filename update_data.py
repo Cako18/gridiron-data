@@ -1092,7 +1092,11 @@ def wochenschein(games_all, teams, model, season, analysis, line_moves,
     if not len(offen):
         return None
     woche = int(pd.to_numeric(offen["week"], errors="coerce").min())
-    spiele = cur[pd.to_numeric(cur["week"], errors="coerce") == woche]
+    # NUR ungespielte Spiele. Ohne diese Zeile landen Spiele der laufenden
+    # Woche, die schon gelaufen sind, im Schein - mit einer Wahrscheinlichkeit,
+    # die aus einem Elo von NACH dem Spiel stammt. Genau das ist am 28.09.2026
+    # passiert und hat vier wertlose Zeilen ins Protokoll geschrieben.
+    spiele = cur[(pd.to_numeric(cur["week"], errors="coerce") == woche) & cur["home_score"].isna()]
     now = datetime.datetime.now(datetime.timezone.utc)
 
     # ---------- eingefrorene Zeilen laden ----------
@@ -1153,9 +1157,11 @@ def wochenschein(games_all, teams, model, season, analysis, line_moves,
     # ---------- einfrieren: jeder Tipp, sobald sein Spiel in Reichweite ist ----------
     jetzt = now.isoformat(timespec="minutes")
     neu = 0
+    gelaufen = set(cur.loc[cur["home_score"].notna()].apply(
+        lambda r: f"{int(r['week'])}-{r['away_team']}-{r['home_team']}", axis=1)) if len(cur) else set()
     for t in tipps:
         k = (str(woche), t["key"], "schein")
-        if t["fix"] and k not in zeilen:
+        if t["fix"] and k not in zeilen and t["key"] not in gelaufen:
             zeilen[k] = [str(woche), t["key"], "schein", t["pick"], f"{t['p']:.4f}",
                          f"{t['quote']:.2f}", f"{t['ev']:.4f}", f"{t['einsatz']:.2f}", jetzt,
                          f"{t['p_markt']:.4f}" if t["p_markt"] is not None else ""]
@@ -1164,7 +1170,8 @@ def wochenschein(games_all, teams, model, season, analysis, line_moves,
         k = (str(woche), v["key"], "vergleich")
         g = spiele[spiele.apply(lambda r, kk=v["key"]: f"{woche}-{r['away_team']}-{r['home_team']}" == kk, axis=1)]
         ko = kickoff_utc(g.iloc[0]) if len(g) else None
-        if ko is not None and (ko - now).total_seconds() <= LOCK_WINDOW_H * 3600 and k not in zeilen:
+        if (ko is not None and (ko - now).total_seconds() <= LOCK_WINDOW_H * 3600
+                and k not in zeilen and v["key"] not in gelaufen):
             zeilen[k] = [str(woche), v["key"], "vergleich", v["pick"], "", f"{v['quote']:.2f}", "",
                          f"{v['einsatz']:.2f}", jetzt, ""]
             neu += 1
