@@ -44,6 +44,7 @@ Selbstlernendes NFL-Vorhersagesystem mit öffentlich nachprüfbarer Bilanz.
 | Welche Merkmale braucht das Modell? | Elo, QB-Rating, Verletzungen. Die übrigen acht ändern nichts oder schaden. | Ablation im Commit-Verlauf |
 | Ist das Modell zu vorsichtig? | Nein. Gegen die Ergebnisse ist es geeicht; es ist weniger sicher als der Markt, weil es weniger weiß. | – |
 | Trifft die Live-Kurve echte Spielverläufe? | Seit der Korrektur im September 2026 besser: sie startet beim Anpfiff genau bei der Prognose. | `live_test.py` |
+| Hilft ein feineres QB-Merkmal? | Nein. Weder QB-Werte nach Stichprobengröße geschrumpft noch ein eigenes „QB fällt aus“-Merkmal verbessern etwas Belegbares (walk-forward 2016–2025, 2672 Spiele, alle Intervalle enthalten die Null). In den 319 Spielen mit QB-Ausfall bleibt der Markt deutlich besser: LogLoss 0,563 gegen 0,593. | 28.09.2026, Commit-Verlauf |
 | Bringt die KI-Recherche etwas? | Offen – wird seit Woche 3 der Saison 2026 gemessen. | `ki_test.py` |
 
 ## Lernt das System dazu?
