@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-09-29 · Saison 2026 · Modell trainiert auf 4046 Spielen (2026-09-29)
+Stand: 2026-09-30 · Saison 2026 · Modell trainiert auf 4046 Spielen (2026-09-30)
 
 ## Woche 4 – Picks
 
@@ -59,7 +59,7 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 - Jaguars: Ø 11.9 Siege · Playoffs 96 % · Division 93 %
 - Vikings: Ø 11.9 Siege · Playoffs 93 % · Division 60 %
 - Seahawks: Ø 11.6 Siege · Playoffs 91 % · Division 38 %
-- Chiefs: Ø 11.1 Siege · Playoffs 87 % · Division 51 %
+- Chiefs: Ø 11.1 Siege · Playoffs 87 % · Division 50 %
 - Ravens: Ø 11.0 Siege · Playoffs 85 % · Division 52 %
 - Lions: Ø 11.0 Siege · Playoffs 82 % · Division 33 %
 
