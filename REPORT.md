@@ -1,39 +1,39 @@
 # Gridiron Wochenreport
 
-Stand: 2026-09-30 · Saison 2026 · Modell trainiert auf 4046 Spielen (2026-09-30)
+Stand: 2026-10-01 · Saison 2026 · Modell trainiert auf 4046 Spielen (2026-10-01)
 
 ## Woche 4 – Picks
 
 **2026-10-01**
-- Browns über Steelers – 53 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
+- Steelers über Browns – 50 % **[MÜNZWURF]**
 **2026-10-04**
-- Commanders über Colts – 51 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
-- Ravens über Titans – 85 % **[BANK]**
-- Bills über Patriots – 70 %
-- Bears über Jets – 75 % **[BANK]**
-- Jaguars über Bengals – 57 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
-- Texans über Cowboys – 57 % **[MÜNZWURF]**
+- Commanders über Colts – 56 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
+- Ravens über Titans – 86 % **[BANK]**
+- Bills über Patriots – 71 % **[BANK]**
+- Bears über Jets – 80 % **[BANK]**
+- Jaguars über Bengals – 55 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
+- Texans über Cowboys – 59 %
 - Giants über Cardinals – 59 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
-- Rams über Eagles – 52 % **[MÜNZWURF]**
-- Packers über Buccaneers – 51 % **[MÜNZWURF]**
-- Vikings über Dolphins – 83 % **[BANK]**
-- Chiefs über Raiders – 63 %
-- Seahawks über Chargers – 87 % **[BANK]**
-- 49ers über Broncos – 64 %
-- Lions über Panthers – 64 %
+- Rams über Eagles – 50 % **[MÜNZWURF]**
+- Packers über Buccaneers – 55 % **[MÜNZWURF]**
+- Vikings über Dolphins – 81 % **[BANK]**
+- Chiefs über Raiders – 61 %
+- Seahawks über Chargers – 83 % **[BANK]**
+- 49ers über Broncos – 68 %
+- Lions über Panthers – 61 %
 **2026-10-05**
-- Falcons über Saints – 51 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
+- Saints über Falcons – 50 % **[MÜNZWURF]**
 
-4 BANK-Picks (gemessen 76,9 %) · 3 Münzwürfe (59,2 %) · 5 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+5 BANK-Picks (gemessen 76,9 %) · 4 Münzwürfe (59,2 %) · 3 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
-- ▲ Falcons: +47 (jetzt 1456)
-- ▼ Packers: -47 (jetzt 1466)
 - ▼ Patriots: -33 (jetzt 1570)
 - ▲ Jaguars: +33 (jetzt 1596)
 - ▲ Bears: +29 (jetzt 1562)
 - ▲ Raiders: +29 (jetzt 1448)
+- ▼ Eagles: -29 (jetzt 1539)
+- ▼ Saints: -29 (jetzt 1438)
 
 ## Wochenauswertung – Woche 3
 
@@ -54,14 +54,14 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- Bills: Ø 12.6 Siege · Playoffs 98 % · Division 92 %
-- 49ers: Ø 12.3 Siege · Playoffs 95 % · Division 56 %
-- Jaguars: Ø 11.9 Siege · Playoffs 96 % · Division 93 %
-- Vikings: Ø 11.9 Siege · Playoffs 93 % · Division 60 %
-- Seahawks: Ø 11.6 Siege · Playoffs 91 % · Division 38 %
-- Chiefs: Ø 11.1 Siege · Playoffs 87 % · Division 50 %
-- Ravens: Ø 11.0 Siege · Playoffs 85 % · Division 52 %
-- Lions: Ø 11.0 Siege · Playoffs 82 % · Division 33 %
+- Bills: Ø 12.7 Siege · Playoffs 98 % · Division 93 %
+- 49ers: Ø 12.7 Siege · Playoffs 96 % · Division 66 %
+- Jaguars: Ø 11.4 Siege · Playoffs 93 % · Division 88 %
+- Vikings: Ø 11.4 Siege · Playoffs 87 % · Division 50 %
+- Seahawks: Ø 11.4 Siege · Playoffs 87 % · Division 30 %
+- Ravens: Ø 10.8 Siege · Playoffs 83 % · Division 50 %
+- Chiefs: Ø 10.8 Siege · Playoffs 84 % · Division 50 %
+- Lions: Ø 10.6 Siege · Playoffs 75 % · Division 30 %
 
 ## Vegas-Duell
 
