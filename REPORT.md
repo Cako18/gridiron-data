@@ -5,7 +5,7 @@ Stand: 2026-10-01 · Saison 2026 · Modell trainiert auf 4046 Spielen (2026-10-0
 ## Woche 4 – Picks
 
 **2026-10-01**
-- Steelers über Browns – 50 % **[MÜNZWURF]**
+- Steelers über Browns – 50 % **[MÜNZWURF]** · KI • 50 %
 **2026-10-04**
 - Commanders über Colts – 56 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
 - Ravens über Titans – 86 % **[BANK]**
