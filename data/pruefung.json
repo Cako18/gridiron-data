@@ -1,0 +1,134 @@
+{
+ "stand": "2026-10-02",
+ "fenster": [
+  2016,
+  2025
+ ],
+ "spiele": 2672,
+ "aktiv": [
+  "elo_diff",
+  "qb_diff",
+  "inj_diff"
+ ],
+ "basis": {
+  "logloss": 0.6245,
+  "treffer": 64.5
+ },
+ "merkmale": [
+  {
+   "merkmal": "elo_diff",
+   "rolle": "aktiv",
+   "diff": 0.02035,
+   "lo": 0.01103,
+   "hi": 0.02993,
+   "urteil": "so lassen (belegt)"
+  },
+  {
+   "merkmal": "qb_diff",
+   "rolle": "aktiv",
+   "diff": 0.00495,
+   "lo": 0.00163,
+   "hi": 0.00829,
+   "urteil": "so lassen (belegt)"
+  },
+  {
+   "merkmal": "off_diff",
+   "rolle": "aus",
+   "diff": 0.00023,
+   "lo": -0.00089,
+   "hi": 0.00138,
+   "urteil": "kein Unterschied"
+  },
+  {
+   "merkmal": "def_diff",
+   "rolle": "aus",
+   "diff": 0.00027,
+   "lo": 0.00011,
+   "hi": 0.00044,
+   "urteil": "so lassen (belegt)"
+  },
+  {
+   "merkmal": "cpoe_diff",
+   "rolle": "aus",
+   "diff": 1e-05,
+   "lo": -0.00193,
+   "hi": 0.00185,
+   "urteil": "kein Unterschied"
+  },
+  {
+   "merkmal": "rest_diff",
+   "rolle": "aus",
+   "diff": -6e-05,
+   "lo": -0.00102,
+   "hi": 0.0009,
+   "urteil": "kein Unterschied"
+  },
+  {
+   "merkmal": "inj_diff",
+   "rolle": "aktiv",
+   "diff": 0.00289,
+   "lo": -0.00013,
+   "hi": 0.0059,
+   "urteil": "kein Unterschied"
+  },
+  {
+   "merkmal": "qb_new_diff",
+   "rolle": "aus",
+   "diff": -6e-05,
+   "lo": -0.001,
+   "hi": 0.00092,
+   "urteil": "kein Unterschied"
+  },
+  {
+   "merkmal": "bye_diff",
+   "rolle": "aus",
+   "diff": -0.00017,
+   "lo": -0.00111,
+   "hi": 0.00081,
+   "urteil": "kein Unterschied"
+  },
+  {
+   "merkmal": "tz_shift_away",
+   "rolle": "aus",
+   "diff": -0.00053,
+   "lo": -0.00162,
+   "hi": 0.00054,
+   "urteil": "kein Unterschied"
+  },
+  {
+   "merkmal": "west_early_away",
+   "rolle": "aus",
+   "diff": 5e-05,
+   "lo": -0.00075,
+   "hi": 0.00085,
+   "urteil": "kein Unterschied"
+  }
+ ],
+ "kalibrierung": [
+  {
+   "band": "50-58 %",
+   "n": 743,
+   "gesagt": 54.0,
+   "real": 52.0
+  },
+  {
+   "band": "58-70 %",
+   "n": 985,
+   "gesagt": 63.9,
+   "real": 62.5
+  },
+  {
+   "band": "70+ %",
+   "n": 944,
+   "gesagt": 78.9,
+   "real": 76.5
+  }
+ ],
+ "empfehlungen": [],
+ "markt": {
+  "n": 2671,
+  "logloss": 0.6082,
+  "logloss_modell": 0.6246,
+  "treffer": 66.5
+ }
+}
