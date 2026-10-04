@@ -61,5 +61,5 @@ key,model_pick,vegas_pick,locked,p_model,p_mkt_lock,edge_src,status
 4-KC-LV,KC,KC,2026-10-04T17:01+00:00,0.6307,0.6643,elo_diff,fix
 4-LAC-SEA,SEA,SEA,2026-10-04T17:01+00:00,0.8627,0.7505,elo_diff,fix
 4-DEN-SF,SF,SF,2026-10-04T17:01+00:00,0.6339,0.5930,qb_diff,fix
-4-DET-CAR,DET,DET,2026-10-04T18:10+00:00,0.6439,0.6361,elo_diff,offen
-4-ATL-NO,ATL,NO,2026-10-04T18:10+00:00,0.5285,0.4574,qb_diff,offen
+4-DET-CAR,DET,DET,2026-10-04T19:41+00:00,0.6439,0.6361,elo_diff,offen
+4-ATL-NO,ATL,NO,2026-10-04T19:41+00:00,0.5285,0.4574,qb_diff,offen
