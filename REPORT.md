@@ -14,12 +14,12 @@ Stand: 2026-10-04 · Saison 2026 · Modell trainiert auf 4047 Spielen (2026-10-0
 - Rams über Eagles – 54 % **[MÜNZWURF]** · KI • 54 %
 - Packers über Buccaneers – 63 % · KI ▲ 70 %
 - Vikings über Dolphins – 81 % **[BANK]** · KI • 81 %
-- Chiefs über Raiders – 63 % · KI ▼ 58 %
+- Chiefs über Raiders – 63 % · KI • 63 %
 - Seahawks über Chargers – 86 % **[BANK]** · KI • 86 %
 - 49ers über Broncos – 63 % · KI • 63 %
 - Lions über Panthers – 64 % · KI • 64 %
 **2026-10-05**
-- Falcons über Saints – 53 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI • 53 %
+- Falcons über Saints – 53 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI ▼ 51 %
 
 5 BANK-Picks (gemessen 76,9 %) · 2 Münzwürfe (59,2 %) · 3 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
