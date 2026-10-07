@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-10-06 · Saison 2026 · Modell trainiert auf 4062 Spielen (2026-10-06)
+Stand: 2026-10-07 · Saison 2026 · Modell trainiert auf 4062 Spielen (2026-10-07)
 
 ## Woche 5 – Picks
 
@@ -19,11 +19,11 @@ Stand: 2026-10-06 · Saison 2026 · Modell trainiert auf 4062 Spielen (2026-10-0
 - Broncos über Chargers – 73 % **[BANK]**
 - Lions über Cardinals – 68 %
 - Seahawks über 49ers – 56 % **[MÜNZWURF]**
-- Falcons über Ravens – 51 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
+- Falcons über Ravens – 51 % **[MÜNZWURF]**
 **2026-10-12**
 - Bills über Rams – 54 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
 
-3 BANK-Picks (gemessen 76,9 %) · 2 Münzwürfe (59,2 %) · 5 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+3 BANK-Picks (gemessen 76,9 %) · 3 Münzwürfe (59,2 %) · 4 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
