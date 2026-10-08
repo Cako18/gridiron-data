@@ -5,7 +5,7 @@ Stand: 2026-10-08 · Saison 2026 · Modell trainiert auf 4062 Spielen (2026-10-0
 ## Woche 5 – Picks
 
 **2026-10-08**
-- Cowboys über Buccaneers – 75 % **[BANK]**
+- Cowboys über Buccaneers – 75 % **[BANK]** · KI ▲ 80 %
 **2026-10-11**
 - Jaguars über Eagles – 72 % **[BANK]**
 - Bears über Packers – 56 % **[MÜNZWURF]**
