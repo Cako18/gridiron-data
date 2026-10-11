@@ -16,7 +16,7 @@ Stand: 2026-10-11 · Saison 2026 · Modell trainiert auf 4063 Spielen (2026-10-1
 - Broncos über Chargers – 78 % **[BANK]** · KI • 78 %
 - Lions über Cardinals – 65 % · KI • 65 %
 - Seahawks über 49ers – 54 % **[MÜNZWURF]** · KI • 54 %
-- Falcons über Ravens – 63 % · KI ▲ 70 %
+- Falcons über Ravens – 63 % · KI ▲ 71 %
 **2026-10-12**
 - Rams über Bills – 53 % **[MÜNZWURF]** · KI • 53 %
 
