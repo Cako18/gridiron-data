@@ -1,36 +1,34 @@
 # Gridiron Wochenreport
 
-Stand: 2026-10-10 · Saison 2026 · Modell trainiert auf 4063 Spielen (2026-10-10)
+Stand: 2026-10-11 · Saison 2026 · Modell trainiert auf 4063 Spielen (2026-10-11)
 
 ## Woche 5 – Picks
 
 **2026-10-11**
-- Jaguars über Eagles – 76 % **[BANK]**
-- Bears über Packers – 55 % **[MÜNZWURF]**
-- Bengals über Dolphins – 72 % **[BANK]**
-- Patriots über Raiders – 66 %
-- Vikings über Saints – 66 %
-- Jets über Browns – 51 % **[MÜNZWURF]**
-- Steelers über Colts – 58 % **[MÜNZWURF]**
-- Texans über Titans – 70 % **[BANK]**
-- Giants über Commanders – 61 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
-- Broncos über Chargers – 78 % **[BANK]**
-- Lions über Cardinals – 65 %
-- Seahawks über 49ers – 54 % **[MÜNZWURF]**
-- Falcons über Ravens – 63 %
+- Jaguars über Eagles – 76 % **[BANK]** · KI • 76 %
+- Bears über Packers – 55 % **[MÜNZWURF]** · KI ▼ 48 %
+- Bengals über Dolphins – 72 % **[BANK]** · KI • 72 %
+- Patriots über Raiders – 66 % · KI • 66 %
+- Vikings über Saints – 66 % · KI • 66 %
+- Jets über Browns – 51 % **[MÜNZWURF]** · KI • 51 %
+- Steelers über Colts – 58 % **[MÜNZWURF]** · KI • 58 %
+- Texans über Titans – 70 % **[BANK]** · KI • 70 %
+- Giants über Commanders – 61 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI ▼ 57 %
+- Broncos über Chargers – 78 % **[BANK]** · KI • 78 %
+- Lions über Cardinals – 65 % · KI • 65 %
+- Seahawks über 49ers – 54 % **[MÜNZWURF]** · KI • 54 %
+- Falcons über Ravens – 63 % · KI ▲ 70 %
 **2026-10-12**
-- Bills über Rams – 52 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
+- Rams über Bills – 53 % **[MÜNZWURF]** · KI • 53 %
 
-4 BANK-Picks (gemessen 76,9 %) · 4 Münzwürfe (59,2 %) · 2 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+4 BANK-Picks (gemessen 76,9 %) · 5 Münzwürfe (59,2 %) · 1 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
 - ▲ Falcons: +34 (jetzt 1490)
 - ▼ Saints: -34 (jetzt 1404)
-- ▲ Panthers: +24 (jetzt 1460)
-- ▼ Lions: -24 (jetzt 1526)
-- ▼ Texans: -23 (jetzt 1506)
-- ▼ Bills: -20 (jetzt 1627)
+- ▲ Buccaneers: +30 (jetzt 1441)
+- ▼ Cowboys: -30 (jetzt 1441)
 
 ## Wochenauswertung – Woche 5
 
@@ -48,12 +46,12 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 - 49ers: Ø 13.1 Siege · Playoffs 98 % · Division 68 %
 - Jaguars: Ø 12.6 Siege · Playoffs 98 % · Division 95 %
-- Bills: Ø 12.4 Siege · Playoffs 98 % · Division 89 %
-- Chiefs: Ø 12.0 Siege · Playoffs 96 % · Division 73 %
-- Vikings: Ø 11.6 Siege · Playoffs 86 % · Division 57 %
+- Chiefs: Ø 12.1 Siege · Playoffs 96 % · Division 73 %
+- Bills: Ø 11.8 Siege · Playoffs 96 % · Division 84 %
+- Vikings: Ø 11.7 Siege · Playoffs 86 % · Division 58 %
 - Seahawks: Ø 11.4 Siege · Playoffs 85 % · Division 23 %
 - Rams: Ø 10.5 Siege · Playoffs 70 % · Division 9 %
-- Bears: Ø 10.2 Siege · Playoffs 63 % · Division 23 %
+- Bears: Ø 10.3 Siege · Playoffs 63 % · Division 23 %
 
 ## Vegas-Duell
 
