@@ -5,7 +5,7 @@ Stand: 2026-10-15 · Saison 2026 · Modell trainiert auf 4076 Spielen (2026-10-1
 ## Woche 6 – Picks
 
 **2026-10-15**
-- Seahawks über Broncos – 56 % **[MÜNZWURF]**
+- Seahawks über Broncos – 56 % **[MÜNZWURF]** · KI • 56 %
 **2026-10-18**
 - Jaguars über Texans – 70 % **[BANK]**
 - Falcons über Bears – 50 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
