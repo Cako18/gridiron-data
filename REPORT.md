@@ -10,7 +10,7 @@ Stand: 2026-10-18 · Saison 2026 · Modell trainiert auf 4077 Spielen (2026-10-1
 - Ravens über Browns – 64 % · KI ▼ 57 %
 - Colts über Titans – 77 % **[BANK]** · KI • 77 %
 - Patriots über Jets – 84 % **[BANK]** · KI • 84 %
-- Giants über Saints – 64 % · KI • 64 %
+- Giants über Saints – 64 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI • 64 %
 - Panthers über Eagles – 58 % · KI ▲ 65 %
 - Steelers über Buccaneers – 61 % · KI ▲ 65 %
 - Rams über Cardinals – 83 % **[BANK]** · KI • 83 %
@@ -20,7 +20,7 @@ Stand: 2026-10-18 · Saison 2026 · Modell trainiert auf 4077 Spielen (2026-10-1
 **2026-10-19**
 - 49ers über Commanders – 86 % **[BANK]** · KI • 86 %
 
-7 BANK-Picks (gemessen 76,9 %) · 0 Münzwürfe (59,2 %) · 1 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+7 BANK-Picks (gemessen 76,9 %) · 0 Münzwürfe (59,2 %) · 2 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
