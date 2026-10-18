@@ -5,7 +5,6 @@ Stand: 2026-10-18 · Saison 2026 · Modell trainiert auf 4077 Spielen (2026-10-1
 ## Woche 6 – Picks
 
 **2026-10-18**
-- Jaguars über Texans – 73 % **[BANK]** · KI • 73 %
 - Falcons über Bears – 57 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI ▼ 52 %
 - Ravens über Browns – 64 % · KI ▼ 57 %
 - Colts über Titans – 77 % **[BANK]** · KI • 77 %
@@ -20,10 +19,12 @@ Stand: 2026-10-18 · Saison 2026 · Modell trainiert auf 4077 Spielen (2026-10-1
 **2026-10-19**
 - 49ers über Commanders – 86 % **[BANK]** · KI • 86 %
 
-7 BANK-Picks (gemessen 76,9 %) · 0 Münzwürfe (59,2 %) · 1 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+6 BANK-Picks (gemessen 76,9 %) · 0 Münzwürfe (59,2 %) · 1 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
+- ▲ Texans: +21 (jetzt 1544)
+- ▼ Jaguars: -21 (jetzt 1598)
 - ▲ Broncos: +15 (jetzt 1609)
 - ▼ Seahawks: -15 (jetzt 1651)
 - ▲ Bills: +14 (jetzt 1641)
@@ -31,43 +32,44 @@ Stand: 2026-10-18 · Saison 2026 · Modell trainiert auf 4077 Spielen (2026-10-1
 
 ## Wochenauswertung – Woche 6
 
-**0 von 1 Picks korrekt (0 %)**
+**0 von 2 Picks korrekt (0 %)**
 
 Danebengelegen:
 - SEA 14:17 DEN · getippt war SEA (56 %, Münzwurf)
+- HOU 34:31 JAX · getippt war JAX (73 %, BANK)
 
-Nach Sicherheitsstufe – Münzwurf: 0/1
-Nach Haupttreiber – elo_diff: 0/1
+Nach Sicherheitsstufe – BANK: 0/1 · Münzwurf: 0/1
+Nach Haupttreiber – elo_diff: 0/2
 
 Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, die Struktur der Fehler über mehrere Wochen dagegen viel. Interessant wird es, wenn eine Stufe dauerhaft unter ihrem Backtest-Wert bleibt.
 
 ## Saisonprojektion (10.000 Simulationen)
 
 - 49ers: Ø 13.4 Siege · Playoffs 99 % · Division 85 %
-- Jaguars: Ø 13.0 Siege · Playoffs 99 % · Division 96 %
-- Bills: Ø 12.8 Siege · Playoffs 98 % · Division 84 %
+- Bills: Ø 12.8 Siege · Playoffs 98 % · Division 83 %
 - Vikings: Ø 12.6 Siege · Playoffs 97 % · Division 72 %
-- Chiefs: Ø 11.5 Siege · Playoffs 89 % · Division 56 %
+- Jaguars: Ø 12.0 Siege · Playoffs 96 % · Division 88 %
+- Chiefs: Ø 11.5 Siege · Playoffs 88 % · Division 57 %
 - Bengals: Ø 11.2 Siege · Playoffs 85 % · Division 58 %
-- Broncos: Ø 10.9 Siege · Playoffs 83 % · Division 40 %
+- Broncos: Ø 10.9 Siege · Playoffs 81 % · Division 39 %
 - Lions: Ø 10.9 Siege · Playoffs 83 % · Division 24 %
 
 ## Vegas-Duell
 
-Modell 53/79 (67.1 %) vs. Vegas 49/79 (62.0 %)
+Modell 53/80 (66.2 %) vs. Vegas 49/80 (61.2 %)
 Bei Uneinigkeit (8 Spiele): Modell gewinnt 6 (75 %)
 
 ### Kalibrierung (vorhergesagt vs. eingetreten)
 
 - 50-58 %: 29 Spiele · vorhergesagt Ø 54.5 % · eingetreten 62.1 %
 - 58-70 %: 27 Spiele · vorhergesagt Ø 64.3 % · eingetreten 66.7 %
-- 70+ %: 23 Spiele · vorhergesagt Ø 76.5 % · eingetreten 73.9 %
+- 70+ %: 24 Spiele · vorhergesagt Ø 76.3 % · eingetreten 70.8 %
 
 Gut kalibriert = beide Werte nah beieinander. ⚠ = Drift über 8 Punkte bei genug Spielen – Modell prüfen.
 
 ### Closing Line Value
 
-Ø CLV: +0.42 Prozentpunkte · 46 % der Picks schlagen die Schlusslinie (79 Spiele)
+Ø CLV: +0.41 Prozentpunkte · 45 % der Picks schlagen die Schlusslinie (80 Spiele)
 
 CLV misst, ob sich der Markt nach unserem eingefrorenen Pick in unsere Richtung bewegt. Dauerhaft über 0 = echte Kante, unabhängig vom Glück einzelner Ergebnisse. Profis vertrauen dieser Zahl mehr als der Trefferquote.
 
