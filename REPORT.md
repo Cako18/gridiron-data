@@ -1,75 +1,68 @@
 # Gridiron Wochenreport
 
-Stand: 2026-10-18 · Saison 2026 · Modell trainiert auf 4077 Spielen (2026-10-18)
+Stand: 2026-10-19 · Saison 2026 · Modell trainiert auf 4089 Spielen (2026-10-19)
 
 ## Woche 6 – Picks
 
-**2026-10-18**
-- Falcons über Bears – 57 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI ▼ 52 %
-- Ravens über Browns – 64 % · KI ▼ 57 %
-- Colts über Titans – 77 % **[BANK]** · KI • 77 %
-- Patriots über Jets – 84 % **[BANK]** · KI • 84 %
-- Giants über Saints – 64 % · KI • 64 %
-- Panthers über Eagles – 58 % · KI ▲ 65 %
-- Steelers über Buccaneers – 61 % · KI ▲ 65 %
-- Rams über Cardinals – 83 % **[BANK]** · KI • 83 %
-- Chiefs über Chargers – 83 % **[BANK]** · KI • 83 %
-- Bills über Raiders – 75 % **[BANK]** · KI • 75 %
-- Packers über Cowboys – 62 % · KI • 62 %
 **2026-10-19**
 - 49ers über Commanders – 86 % **[BANK]** · KI • 86 %
 
-6 BANK-Picks (gemessen 76,9 %) · 0 Münzwürfe (59,2 %) · 1 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+1 BANK-Picks (gemessen 76,9 %) · 0 Münzwürfe (59,2 %) · 0 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
-- ▲ Texans: +21 (jetzt 1544)
-- ▼ Jaguars: -21 (jetzt 1598)
-- ▲ Broncos: +15 (jetzt 1609)
-- ▼ Seahawks: -15 (jetzt 1651)
-- ▲ Bills: +14 (jetzt 1641)
-- ▼ Rams: -14 (jetzt 1572)
+- ▼ Colts: -34 (jetzt 1424)
+- ▲ Titans: +34 (jetzt 1319)
+- ▲ Panthers: +34 (jetzt 1494)
+- ▼ Eagles: -34 (jetzt 1482)
+- ▲ Saints: +29 (jetzt 1420)
+- ▼ Giants: -29 (jetzt 1428)
 
 ## Wochenauswertung – Woche 6
 
-**0 von 2 Picks korrekt (0 %)**
+**6 von 13 Picks korrekt (46 %)**
 
 Danebengelegen:
 - SEA 14:17 DEN · getippt war SEA (56 %, Münzwurf)
 - HOU 34:31 JAX · getippt war JAX (73 %, BANK)
+- CHI 31:23 ATL · getippt war ATL (57 %, Münzwurf)
+- BAL 10:13 CLE · getippt war BAL (64 %, Mittelfeld)
+- TEN 26:20 IND · getippt war IND (77 %, BANK)
+- NO 34:27 NYG · getippt war NYG (64 %, Mittelfeld)
+- ARI 18:16 LA · getippt war LA (83 %, BANK)
 
-Nach Sicherheitsstufe – BANK: 0/1 · Münzwurf: 0/1
-Nach Haupttreiber – elo_diff: 0/2
+Nach Sicherheitsstufe – BANK: 3/6 · Mittelfeld: 3/5 · Münzwurf: 0/2
+Nach Haupttreiber – elo_diff: 5/12 · inj_diff: 1/1
 
 Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, die Struktur der Fehler über mehrere Wochen dagegen viel. Interessant wird es, wenn eine Stufe dauerhaft unter ihrem Backtest-Wert bleibt.
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- 49ers: Ø 13.4 Siege · Playoffs 99 % · Division 85 %
-- Bills: Ø 12.8 Siege · Playoffs 98 % · Division 83 %
-- Vikings: Ø 12.6 Siege · Playoffs 97 % · Division 72 %
-- Jaguars: Ø 12.0 Siege · Playoffs 96 % · Division 88 %
-- Chiefs: Ø 11.5 Siege · Playoffs 88 % · Division 57 %
-- Bengals: Ø 11.2 Siege · Playoffs 85 % · Division 58 %
-- Broncos: Ø 10.9 Siege · Playoffs 81 % · Division 39 %
-- Lions: Ø 10.9 Siege · Playoffs 83 % · Division 24 %
+- 49ers: Ø 13.5 Siege · Playoffs 99 % · Division 89 %
+- Bills: Ø 13.0 Siege · Playoffs 99 % · Division 84 %
+- Vikings: Ø 12.6 Siege · Playoffs 97 % · Division 70 %
+- Jaguars: Ø 12.1 Siege · Playoffs 96 % · Division 90 %
+- Chiefs: Ø 11.8 Siege · Playoffs 92 % · Division 65 %
+- Bengals: Ø 11.1 Siege · Playoffs 84 % · Division 62 %
+- Lions: Ø 11.0 Siege · Playoffs 85 % · Division 23 %
+- Broncos: Ø 10.8 Siege · Playoffs 80 % · Division 33 %
 
 ## Vegas-Duell
 
-Modell 53/80 (66.2 %) vs. Vegas 49/80 (61.2 %)
-Bei Uneinigkeit (8 Spiele): Modell gewinnt 6 (75 %)
+Modell 59/91 (64.8 %) vs. Vegas 57/91 (62.6 %)
+Bei Uneinigkeit (10 Spiele): Modell gewinnt 6 (60 %)
 
 ### Kalibrierung (vorhergesagt vs. eingetreten)
 
-- 50-58 %: 29 Spiele · vorhergesagt Ø 54.5 % · eingetreten 62.1 %
-- 58-70 %: 27 Spiele · vorhergesagt Ø 64.3 % · eingetreten 66.7 %
-- 70+ %: 24 Spiele · vorhergesagt Ø 76.3 % · eingetreten 70.8 %
+- 50-58 %: 30 Spiele · vorhergesagt Ø 54.6 % · eingetreten 60.0 %
+- 58-70 %: 32 Spiele · vorhergesagt Ø 63.9 % · eingetreten 65.6 %
+- 70+ %: 29 Spiele · vorhergesagt Ø 77.1 % · eingetreten 69.0 % ⚠
 
 Gut kalibriert = beide Werte nah beieinander. ⚠ = Drift über 8 Punkte bei genug Spielen – Modell prüfen.
 
 ### Closing Line Value
 
-Ø CLV: +0.41 Prozentpunkte · 45 % der Picks schlagen die Schlusslinie (80 Spiele)
+Ø CLV: +0.32 Prozentpunkte · 43 % der Picks schlagen die Schlusslinie (91 Spiele)
 
 CLV misst, ob sich der Markt nach unserem eingefrorenen Pick in unsere Richtung bewegt. Dauerhaft über 0 = echte Kante, unabhängig vom Glück einzelner Ergebnisse. Profis vertrauen dieser Zahl mehr als der Trefferquote.
 
