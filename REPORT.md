@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-10-20 · Saison 2026 · Modell trainiert auf 4090 Spielen (2026-10-20)
+Stand: 2026-10-21 · Saison 2026 · Modell trainiert auf 4090 Spielen (2026-10-21)
 
 ## Woche 7 – Picks
 
@@ -20,7 +20,7 @@ Stand: 2026-10-20 · Saison 2026 · Modell trainiert auf 4090 Spielen (2026-10-2
 - Rams über Raiders – 63 %
 - Seahawks über Chiefs – 63 %
 **2026-10-26**
-- Cowboys über Eagles – 55 % **[MÜNZWURF]**
+- Cowboys über Eagles – 54 % **[MÜNZWURF]**
 
 3 BANK-Picks (gemessen 76,9 %) · 4 Münzwürfe (59,2 %) · 2 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
