@@ -1,28 +1,28 @@
 # Gridiron Wochenreport
 
-Stand: 2026-10-21 · Saison 2026 · Modell trainiert auf 4090 Spielen (2026-10-21)
+Stand: 2026-10-22 · Saison 2026 · Modell trainiert auf 4090 Spielen (2026-10-22)
 
 ## Woche 7 – Picks
 
 **2026-10-22**
-- Patriots über Bears – 55 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
+- Bears über Patriots – 52 % **[MÜNZWURF]**
 **2026-10-25**
-- Steelers über Saints – 52 % **[MÜNZWURF]**
-- 49ers über Falcons – 66 %
-- Bengals über Ravens – 50 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
-- Panthers über Buccaneers – 75 % **[BANK]**
-- Texans über Giants – 72 % **[BANK]**
-- Vikings über Colts – 80 % **[BANK]**
-- Jets über Dolphins – 52 % **[MÜNZWURF]**
-- Browns über Titans – 52 % **[MÜNZWURF]**
-- Broncos über Cardinals – 70 %
-- Lions über Packers – 68 %
-- Rams über Raiders – 63 %
-- Seahawks über Chiefs – 63 %
+- Steelers über Saints – 55 % **[MÜNZWURF]**
+- 49ers über Falcons – 72 % **[BANK]**
+- Ravens über Bengals – 62 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
+- Panthers über Buccaneers – 68 %
+- Texans über Giants – 75 % **[BANK]**
+- Vikings über Colts – 78 % **[BANK]**
+- Jets über Dolphins – 59 %
+- Browns über Titans – 62 %
+- Broncos über Cardinals – 68 %
+- Lions über Packers – 59 %
+- Rams über Raiders – 60 %
+- Seahawks über Chiefs – 62 %
 **2026-10-26**
-- Cowboys über Eagles – 54 % **[MÜNZWURF]**
+- Eagles über Cowboys – 60 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
 
-3 BANK-Picks (gemessen 76,9 %) · 4 Münzwürfe (59,2 %) · 2 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+3 BANK-Picks (gemessen 76,9 %) · 2 Münzwürfe (59,2 %) · 2 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
@@ -53,14 +53,14 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- 49ers: Ø 13.7 Siege · Playoffs 100 % · Division 92 %
-- Bills: Ø 13.0 Siege · Playoffs 98 % · Division 82 %
-- Vikings: Ø 12.6 Siege · Playoffs 97 % · Division 70 %
-- Jaguars: Ø 12.1 Siege · Playoffs 96 % · Division 90 %
-- Chiefs: Ø 11.8 Siege · Playoffs 92 % · Division 64 %
-- Bengals: Ø 11.0 Siege · Playoffs 81 % · Division 54 %
-- Lions: Ø 10.9 Siege · Playoffs 84 % · Division 22 %
-- Broncos: Ø 10.8 Siege · Playoffs 79 % · Division 33 %
+- 49ers: Ø 14.1 Siege · Playoffs 100 % · Division 95 %
+- Bills: Ø 12.8 Siege · Playoffs 98 % · Division 87 %
+- Vikings: Ø 12.1 Siege · Playoffs 95 % · Division 62 %
+- Chiefs: Ø 11.8 Siege · Playoffs 92 % · Division 66 %
+- Jaguars: Ø 11.7 Siege · Playoffs 95 % · Division 90 %
+- Ravens: Ø 10.7 Siege · Playoffs 77 % · Division 46 %
+- Broncos: Ø 10.7 Siege · Playoffs 78 % · Division 32 %
+- Lions: Ø 10.5 Siege · Playoffs 77 % · Division 20 %
 
 ## Vegas-Duell
 
