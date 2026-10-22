@@ -5,7 +5,7 @@ Stand: 2026-10-22 · Saison 2026 · Modell trainiert auf 4090 Spielen (2026-10-2
 ## Woche 7 – Picks
 
 **2026-10-22**
-- Bears über Patriots – 52 % **[MÜNZWURF]**
+- Bears über Patriots – 52 % **[MÜNZWURF]** · KI • 52 %
 **2026-10-25**
 - Steelers über Saints – 55 % **[MÜNZWURF]**
 - 49ers über Falcons – 72 % **[BANK]**
