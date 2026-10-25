@@ -14,10 +14,11 @@ on:
     # Gemessen am 27.09.2026: der Lauf startete erst 14:06 UTC, also 5,7 h zu spaet -
     # drei Stunden vor Anpfiff. Deshalb vier Stunden nach vorn gezogen.
     - cron: "23 4 * * 0"
-    # So 12:37 UTC - vor dem Lock der 16:25-ET-Spiele (17:55 UTC). Der alte Termin
-    # 15:37 UTC lief am 27.09. erst um 19:15 UTC, da waren die Nachmittagsspiele
-    # laengst eingefroren; nur das Abendspiel hatte noch etwas davon.
-    - cron: "37 12 * * 0"
+    # So 10:37 UTC - vor dem Lock der 16:25-ET-Spiele (17:55 UTC). Gemessen an
+    # vier Sonntagen im Oktober 2026 liegt der Verzug der KI-Laeufe stabil bei
+    # 3,5 bis 6,5 h. Der Termin 12:37 landete damit zwischen 16:07 und 17:46 UTC -
+    # am 11.10. also neun Minuten vor dem Lock. Zwei Stunden vorgezogen.
+    - cron: "37 10 * * 0"
   workflow_dispatch: {}
 
 permissions:

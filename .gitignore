@@ -5,3 +5,4 @@ cache/
 /app_next.js
 src/node_modules/
 src/pruef/_*
+graphify-out/
