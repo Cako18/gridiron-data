@@ -1100,7 +1100,7 @@ def wochenschein(games_all, teams, model, season, analysis, line_moves,
     now = datetime.datetime.now(datetime.timezone.utc)
 
     # ---------- eingefrorene Zeilen laden ----------
-    KOPF = ["woche", "key", "art", "pick", "p", "quote", "ev", "einsatz", "locked", "p_markt"]
+    KOPF = ["woche", "key", "art", "pick", "p", "quote", "ev", "einsatz", "locked", "p_markt", "status"]
     zeilen = {}
     if os.path.exists(path):
         with open(path) as f:
@@ -1154,34 +1154,64 @@ def wochenschein(games_all, teams, model, season, analysis, line_moves,
     kandidaten.sort(key=lambda x: -x["ev"])
     tipps = kandidaten[:SCHEIN_MAX]
 
-    # ---------- einfrieren: jeder Tipp, sobald sein Spiel in Reichweite ist ----------
+    # ---------- festhalten und einfrieren ----------
+    # Frueher wurde eine Zeile NUR geschrieben, wenn ein Pipelinelauf zufaellig in
+    # die 2,5-Stunden-Sperrfrist vor Anpfiff fiel. Fuer die Abendspiele am
+    # Donnerstag, Sonntag und Montag (Anpfiff 00:15-00:20 UTC) laeuft aber kein
+    # einziger Cron in diesem Fenster - in den Wochen 4 bis 7 fehlten deshalb
+    # ALLE zwoelf Abendspiele im Protokoll. Gemessen wurde also nur der Nachmittag.
+    #
+    # Jetzt gilt dieselbe Regel wie bei den Picks: Die Zeile wird bei jedem Lauf
+    # neu geschrieben, solange das Spiel noch nicht angepfiffen ist, und ist ab
+    # dem ersten Lauf innerhalb der Sperrfrist endgueltig. So hat jede Wette eine
+    # Aufzeichnung von VOR dem Anpfiff, egal wann die Laeufe fallen.
     jetzt = now.isoformat(timespec="minutes")
-    neu = 0
+    neu_fix = 0
     gelaufen = set(cur.loc[cur["home_score"].notna()].apply(
         lambda r: f"{int(r['week'])}-{r['away_team']}-{r['home_team']}", axis=1)) if len(cur) else set()
+    kos = {f"{woche}-{r['away_team']}-{r['home_team']}": kickoff_utc(r) for _, r in spiele.iterrows()}
+
+    def festhalten(k, werte, ko):
+        """Schreibt oder aktualisiert eine Zeile. Liefert True, wenn neu eingefroren."""
+        alt_ = zeilen.get(k)
+        # Altzeilen ohne Status stammen aus der Zeit, als NUR in der Sperrfrist
+        # geschrieben wurde - sie sind damit ebenfalls endgueltig.
+        if alt_ and (len(alt_) <= 10 or alt_[10] == "fix"):
+            return False                                   # endgueltig, nie wieder anfassen
+        if k[1] in gelaufen or ko is None or ko <= now:
+            return False                                   # nach Anpfiff wird nichts mehr erfasst
+        fix = (ko - now).total_seconds() <= LOCK_WINDOW_H * 3600
+        zeilen[k] = werte[:8] + [jetzt, werte[8], "fix" if fix else "offen"]
+        return fix
+
+    aktuelle_schein = {(str(woche), t["key"], "schein") for t in tipps}
     for t in tipps:
         k = (str(woche), t["key"], "schein")
-        if t["fix"] and k not in zeilen and t["key"] not in gelaufen:
-            zeilen[k] = [str(woche), t["key"], "schein", t["pick"], f"{t['p']:.4f}",
-                         f"{t['quote']:.2f}", f"{t['ev']:.4f}", f"{t['einsatz']:.2f}", jetzt,
-                         f"{t['p_markt']:.4f}" if t["p_markt"] is not None else ""]
-            neu += 1
+        werte = [str(woche), t["key"], "schein", t["pick"], f"{t['p']:.4f}", f"{t['quote']:.2f}",
+                 f"{t['ev']:.4f}", f"{t['einsatz']:.2f}",
+                 f"{t['p_markt']:.4f}" if t["p_markt"] is not None else ""]
+        neu_fix += festhalten(k, werte, kos.get(t["key"]))
     for v in vergleich:
         k = (str(woche), v["key"], "vergleich")
-        g = spiele[spiele.apply(lambda r, kk=v["key"]: f"{woche}-{r['away_team']}-{r['home_team']}" == kk, axis=1)]
-        ko = kickoff_utc(g.iloc[0]) if len(g) else None
-        if (ko is not None and (ko - now).total_seconds() <= LOCK_WINDOW_H * 3600
-                and k not in zeilen and v["key"] not in gelaufen):
-            zeilen[k] = [str(woche), v["key"], "vergleich", v["pick"], "", f"{v['quote']:.2f}", "",
-                         f"{v['einsatz']:.2f}", jetzt, ""]
-            neu += 1
+        werte = [str(woche), v["key"], "vergleich", v["pick"], "", f"{v['quote']:.2f}", "",
+                 f"{v['einsatz']:.2f}", ""]
+        neu_fix += festhalten(k, werte, kos.get(v["key"]))
+
+    # Noch nicht endgueltige Schein-Zeilen dieser Woche, die aus der Auswahl
+    # gefallen sind, verschwinden wieder - der Schein soll zeigen, was gilt.
+    for k in [k for k in list(zeilen)
+              if k[0] == str(woche) and k[2] == "schein" and k not in aktuelle_schein
+              and not (len(zeilen[k]) > 10 and zeilen[k][10] == "fix")]:
+        del zeilen[k]
+
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(KOPF)
         for k in sorted(zeilen, key=lambda x: (int(x[0]), x[2], x[1])):
-            w.writerow(zeilen[k])
-    if neu:
-        print(f"  Schein: {neu} Zeilen eingefroren (Woche {woche})")
+            r = zeilen[k]
+            w.writerow(r + [""] * (len(KOPF) - len(r)))
+    if neu_fix:
+        print(f"  Schein: {neu_fix} Zeilen endgueltig eingefroren (Woche {woche})")
 
     # ---------- Bilanz ueber alle abgerechneten Zeilen ----------
     erg = {}
