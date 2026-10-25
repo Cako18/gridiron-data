@@ -1,35 +1,33 @@
 # Gridiron Wochenreport
 
-Stand: 2026-10-24 · Saison 2026 · Modell trainiert auf 4091 Spielen (2026-10-24)
+Stand: 2026-10-25 · Saison 2026 · Modell trainiert auf 4091 Spielen (2026-10-25)
 
 ## Woche 7 – Picks
 
 **2026-10-25**
-- Steelers über Saints – 51 % **[MÜNZWURF]**
-- 49ers über Falcons – 72 % **[BANK]**
-- Ravens über Bengals – 56 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
-- Panthers über Buccaneers – 71 % **[BANK]**
-- Texans über Giants – 75 % **[BANK]**
-- Vikings über Colts – 81 % **[BANK]**
-- Jets über Dolphins – 58 % **[MÜNZWURF]**
-- Browns über Titans – 52 % **[MÜNZWURF]**
-- Broncos über Cardinals – 71 % **[BANK]**
-- Lions über Packers – 62 %
-- Rams über Raiders – 61 %
-- Seahawks über Chiefs – 58 % **[MÜNZWURF]**
+- Steelers über Saints – 51 % **[MÜNZWURF]** · KI • 51 %
+- 49ers über Falcons – 74 % **[BANK]** · KI • 74 %
+- Bengals über Ravens – 57 % **[MÜNZWURF]** · KI ▲ 64 %
+- Panthers über Buccaneers – 71 % **[BANK]** · KI ▼ 67 %
+- Texans über Giants – 75 % **[BANK]** · KI ▲ 77 %
+- Vikings über Colts – 82 % **[BANK]** · KI • 82 %
+- Jets über Dolphins – 58 % **[MÜNZWURF]** · KI • 58 %
+- Browns über Titans – 53 % **[MÜNZWURF]** · KI • 53 %
+- Broncos über Cardinals – 71 % **[BANK]** · KI • 71 %
+- Lions über Packers – 62 % · KI • 62 %
+- Rams über Raiders – 61 % · KI ▼ 59 %
+- Seahawks über Chiefs – 58 % **[MÜNZWURF]** · KI • 58 %
 **2026-10-26**
-- Eagles über Cowboys – 60 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
+- Eagles über Cowboys – 55 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI ▼ 48 %
 
-5 BANK-Picks (gemessen 76,9 %) · 4 Münzwürfe (59,2 %) · 2 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+5 BANK-Picks (gemessen 76,9 %) · 5 Münzwürfe (59,2 %) · 1 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
-- ▲ Bears: +41 (jetzt 1575)
-- ▼ Colts: -34 (jetzt 1424)
-- ▲ Titans: +34 (jetzt 1319)
-- ▲ Panthers: +34 (jetzt 1494)
-- ▼ Eagles: -34 (jetzt 1482)
-- ▲ Saints: +29 (jetzt 1420)
+- ▲ Bears: +20 (jetzt 1575)
+- ▼ Patriots: -20 (jetzt 1591)
+- ▲ 49ers: +6 (jetzt 1659)
+- ▼ Commanders: -6 (jetzt 1407)
 
 ## Wochenauswertung – Woche 7
 
@@ -42,14 +40,14 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- 49ers: Ø 13.6 Siege · Playoffs 99 % · Division 94 %
-- Bills: Ø 13.1 Siege · Playoffs 99 % · Division 92 %
+- 49ers: Ø 13.7 Siege · Playoffs 99 % · Division 94 %
+- Bills: Ø 13.2 Siege · Playoffs 99 % · Division 93 %
 - Vikings: Ø 12.4 Siege · Playoffs 96 % · Division 62 %
-- Jaguars: Ø 12.0 Siege · Playoffs 97 % · Division 94 %
-- Chiefs: Ø 11.7 Siege · Playoffs 92 % · Division 66 %
-- Bengals: Ø 10.8 Siege · Playoffs 81 % · Division 48 %
-- Lions: Ø 10.7 Siege · Playoffs 79 % · Division 19 %
-- Broncos: Ø 10.6 Siege · Playoffs 78 % · Division 31 %
+- Jaguars: Ø 12.2 Siege · Playoffs 98 % · Division 94 %
+- Chiefs: Ø 11.8 Siege · Playoffs 93 % · Division 66 %
+- Bengals: Ø 11.1 Siege · Playoffs 85 % · Division 61 %
+- Lions: Ø 10.8 Siege · Playoffs 79 % · Division 20 %
+- Broncos: Ø 10.6 Siege · Playoffs 79 % · Division 31 %
 
 ## Vegas-Duell
 
