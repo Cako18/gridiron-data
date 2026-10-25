@@ -53,12 +53,12 @@ woche,key,art,pick,p,quote,ev,einsatz,locked,p_markt,status
 7,7-TB-CAR,schein,CAR,0.7107,1.60,0.1371,2.00,2026-10-25T14:58+00:00,0.6000,fix
 7,7-CIN-BAL,vergleich,CIN,,1.68,,1.00,2026-10-25T14:58+00:00,,fix
 7,7-CLE-TEN,vergleich,CLE,,1.77,,1.00,2026-10-25T14:58+00:00,,fix
-7,7-DAL-PHI,vergleich,DAL,,1.46,,1.00,2026-10-25T17:40+00:00,,offen
+7,7-DAL-PHI,vergleich,DAL,,1.46,,1.00,2026-10-25T19:05+00:00,,offen
 7,7-DEN-ARI,vergleich,DEN,,1.42,,1.00,2026-10-25T17:40+00:00,,fix
-7,7-GB-DET,vergleich,DET,,1.56,,1.00,2026-10-25T17:40+00:00,,offen
+7,7-GB-DET,vergleich,DET,,1.52,,1.00,2026-10-25T19:05+00:00,,fix
 7,7-IND-MIN,vergleich,MIN,,1.29,,1.00,2026-10-25T14:58+00:00,,fix
-7,7-KC-SEA,vergleich,SEA,,1.68,,1.00,2026-10-25T17:40+00:00,,offen
-7,7-LA-LV,vergleich,LA,,1.54,,1.00,2026-10-25T17:40+00:00,,offen
+7,7-KC-SEA,vergleich,SEA,,1.68,,1.00,2026-10-25T19:05+00:00,,offen
+7,7-LA-LV,vergleich,LA,,1.54,,1.00,2026-10-25T19:05+00:00,,fix
 7,7-MIA-NYJ,vergleich,NYJ,,1.46,,1.00,2026-10-25T14:58+00:00,,fix
 7,7-NYG-HOU,vergleich,HOU,,1.19,,1.00,2026-10-25T14:58+00:00,,fix
 7,7-PIT-NO,vergleich,PIT,,1.62,,1.00,2026-10-25T11:20+00:00,,
