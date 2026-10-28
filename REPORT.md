@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-10-27 · Saison 2026 · Modell trainiert auf 4104 Spielen (2026-10-27)
+Stand: 2026-10-28 · Saison 2026 · Modell trainiert auf 4104 Spielen (2026-10-28)
 
 ## Woche 8 – Picks
 
@@ -12,7 +12,7 @@ Stand: 2026-10-27 · Saison 2026 · Modell trainiert auf 4104 Spielen (2026-10-2
 - Cowboys über Cardinals – 73 % **[BANK]**
 - Lions über Vikings – 52 % **[MÜNZWURF]**
 - Jaguars über Colts – 85 % **[BANK]**
-- Raiders über Jets – 53 % **[MÜNZWURF]**
+- Raiders über Jets – 53 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
 - Steelers über Browns – 71 % **[BANK]**
 - Buccaneers über Falcons – 56 % **[MÜNZWURF]**
 - Rams über Chargers – 78 % **[BANK]**
@@ -20,9 +20,9 @@ Stand: 2026-10-27 · Saison 2026 · Modell trainiert auf 4104 Spielen (2026-10-2
 - Patriots über Dolphins – 70 % **[BANK]**
 - Commanders über Eagles – 64 %
 **2026-11-02**
-- Seahawks über Bears – 58 % **[MÜNZWURF]**
+- Seahawks über Bears – 62 %
 
-8 BANK-Picks (gemessen 76,9 %) · 4 Münzwürfe (59,2 %) · 1 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+8 BANK-Picks (gemessen 76,9 %) · 2 Münzwürfe (59,2 %) · 2 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
@@ -53,7 +53,7 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 - Bills: Ø 13.1 Siege · Playoffs 99 % · Division 93 %
 - Vikings: Ø 12.8 Siege · Playoffs 97 % · Division 70 %
-- 49ers: Ø 12.5 Siege · Playoffs 97 % · Division 78 %
+- 49ers: Ø 12.4 Siege · Playoffs 96 % · Division 74 %
 - Bengals: Ø 12.1 Siege · Playoffs 96 % · Division 73 %
 - Jaguars: Ø 12.1 Siege · Playoffs 98 % · Division 97 %
 - Broncos: Ø 11.3 Siege · Playoffs 91 % · Division 57 %
