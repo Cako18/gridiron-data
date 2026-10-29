@@ -5,7 +5,7 @@ Stand: 2026-10-29 · Saison 2026 · Modell trainiert auf 4104 Spielen (2026-10-2
 ## Woche 8 – Picks
 
 **2026-10-29**
-- Packers über Panthers – 70 % **[BANK]**
+- Packers über Panthers – 70 % **[BANK]** · KI • 70 %
 **2026-11-01**
 - Bills über Ravens – 70 %
 - Bengals über Titans – 87 % **[BANK]**
