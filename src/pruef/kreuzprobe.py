@@ -13,7 +13,7 @@ Oberflaeche rechnete das QB-Merkmal trotzdem verkehrt herum.
 
 Aufruf (aus src/):   python pruef/kreuzprobe.py
 Nach jeder Aenderung an features() oder predict_game() laufen lassen. Die
-Probe setzt fuer alle elf Merkmale kuenstliche Koeffizienten ungleich 0 und
+Probe setzt fuer alle Merkmale kuenstliche Koeffizienten ungleich 0 und
 prueft so auch Merkmale, die im aktuellen Modell abgeschaltet sind.
 """
 import json
@@ -71,7 +71,7 @@ def main():
             return {"elo": random.uniform(1300, 1750), "qb": random.uniform(-.3, .3),
                     "off_epa": random.uniform(-.3, .3), "def_epa": random.uniform(-.3, .3),
                     "cpoe": random.uniform(-10, 10), "inj": random.uniform(0, 15),
-                    "qb_new": random.choice([0, 0, 1])}
+                    "qb_new": random.choice([0, 0, 1]), "mr": random.uniform(-1.2, 1.2)}
         teams = {h: team(), a: team()}
         g = {"h": h, "a": a, "w": 3, "hr": random.choice([4, 6, 7, 8, 10, 13, 14]),
              "ar": random.choice([4, 6, 7, 8, 10, 13, 14]), "t": random.choice(["13:00", "16:25", "20:20", ""])}

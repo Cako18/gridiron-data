@@ -111,7 +111,8 @@ INJ_FROM = 2009
 TRAIN_FROM = 2010
 
 FEATURE_ORDER = ["elo_diff", "qb_diff", "off_diff", "def_diff", "cpoe_diff", "rest_diff",
-                 "inj_diff", "qb_new_diff", "bye_diff", "tz_shift_away", "west_early_away"]
+                 "inj_diff", "qb_new_diff", "bye_diff", "tz_shift_away", "west_early_away",
+                 "mkt_diff"]
 
 # Aktive Merkmale. Die uebrigen bleiben in FEATURE_ORDER und model.json stehen,
 # bekommen aber den Koeffizienten 0 - so rechnen alte und neue Oberflaeche, die
@@ -125,7 +126,21 @@ FEATURE_ORDER = ["elo_diff", "qb_diff", "off_diff", "def_diff", "cpoe_diff", "re
 #     nicht von null zu unterscheiden; kein systematischer Verlust nach Saison-
 #     phase oder Jahrgang; Tipps gegen den Markt gleich oft und gleich schlecht
 # Weniger Merkmale heisst hier also: gleich gut, einfacher, jede Prognose erklaerbar.
-AKTIV = ["elo_diff", "qb_diff", "inj_diff"]
+#
+# Seit November 2026 dazu mkt_diff: Teamstaerken aus den Schlussquoten der
+# VERGANGENEN Spiele (siehe markt_ratings()). Walk-forward 2016-2025 zusammen
+# mit Elo, QB und Verletzungen: LogLoss -0,0033 (95 %: -0,0073 bis +0,0007),
+# Treffer 65,1 % statt 64,5 %. Knapp, aber der groesste Gewinn, den eine von
+# sieben getesteten Ideen fuer das eigene Modell gebracht hat. Die monatliche
+# Selbstpruefung (pruefung.py) misst weiter, ob er bleibt.
+AKTIV = ["elo_diff", "qb_diff", "inj_diff", "mkt_diff"]
+
+# Markt-Ratings: wie stark der Markt jedes Team in den letzten Monaten
+# eingeschaetzt hat, aus den Schlussquoten bereits gespielter Spiele.
+MR_HALBWERT_WOCHEN = 8      # aeltere Spiele zaehlen halb so viel je 8 Wochen
+MR_FENSTER_TAGE = 400
+MR_RIDGE = 2.0              # zieht Teams mit wenig Daten zur Mitte
+MR_UMZUG = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
 
 TZ = {"BUF": 0, "MIA": 0, "NE": 0, "NYJ": 0, "NYG": 0, "PHI": 0, "PIT": 0, "BAL": 0,
       "CIN": 0, "CLE": 0, "WAS": 0, "CAR": 0, "ATL": 0, "JAX": 0, "TB": 0, "IND": 0,
@@ -167,6 +182,10 @@ EDGE_SOURCES = {
     "elo_diff": {"hit": 65.0, "n": 874, "label": "Elo/Form",     "trust": "hoch"},
     "inj_diff": {"hit": 51.6, "n": 161, "label": "Verletzungen", "trust": "niedrig"},
 }
+# Merkmale ohne gemessene Trefferquote als Hauptgrund - nur fuer die Beschriftung.
+# (Nicht in EDGE_SOURCES: die Oberflaeche rechnet dort mit "hit" und wuerde an
+# einem leeren Wert scheitern.)
+QUELLEN_LABEL = {"mkt_diff": "Markt-Rating"}
 
 DIVISIONS = {
     "AFC_East": ["BUF", "MIA", "NE", "NYJ"], "AFC_North": ["BAL", "CIN", "CLE", "PIT"],
@@ -196,6 +215,67 @@ def fetch_csv(url):
     except Exception as e:
         print(f"  (uebersprungen: {url} -> {e})")
         return None
+
+
+def markt_ratings(games_all):
+    """Teamstaerken aus den Schlussquoten vergangener Spiele.
+
+    Fuer jede Spielwoche wird geschaetzt, wie stark der Markt jedes Team in den
+    Monaten DAVOR eingeschaetzt hat: logit(Heimsieg laut Quote) = Heimvorteil +
+    Staerke Heim - Staerke Gast, gewichtete Ridge-Regression ueber alle Spiele
+    der letzten 400 Tage, neuere Spiele staerker. Stichtag ist jeweils der erste
+    Spieltag der Woche - die Quoten der Woche selbst fliessen NICHT ein, sonst
+    wuerde das Modell die Quote abschreiben, die es vorhersagen soll.
+
+    Rueckgabe: (Merkmal je Spiel {(saison, woche, heim, gast): Differenz},
+                aktuelle Staerken {team: rating} zum Stichtag der offenen Woche)
+    """
+    imp = lambda ml: np.nan if pd.isna(ml) or ml == 0 else (100 / (ml + 100) if ml > 0 else -ml / (-ml + 100))
+    g = games_all[games_all["home_moneyline"].notna() & games_all["away_moneyline"].notna()
+                  & games_all["gameday"].notna()].copy()
+    ih, ia = g["home_moneyline"].map(imp), g["away_moneyline"].map(imp)
+    g["p"] = ih / (ih + ia)
+    g = g[(g["p"] > 0.01) & (g["p"] < 0.99)]
+    g["dt"] = pd.to_datetime(g["gameday"])
+    g["lm"] = np.log(g["p"] / (1 - g["p"]))
+    g["h"] = g["home_team"].replace(MR_UMZUG)
+    g["a"] = g["away_team"].replace(MR_UMZUG)
+    teams = sorted(set(g["h"]) | set(g["a"]))
+    ix = {t: i for i, t in enumerate(teams)}
+    T = len(teams)
+    dts = g["dt"].values
+    hi, ai = g["h"].map(ix).values, g["a"].map(ix).values
+    lm = g["lm"].values
+
+    def fit(stichtag):
+        m = (dts < np.datetime64(stichtag)) & (dts >= np.datetime64(stichtag - pd.Timedelta(days=MR_FENSTER_TAGE)))
+        if m.sum() < 80:
+            return None
+        alter = (np.datetime64(stichtag) - dts[m]).astype("timedelta64[D]").astype(float) / 7.0
+        w = np.sqrt(0.5 ** (alter / MR_HALBWERT_WOCHEN))
+        n = int(m.sum())
+        X = np.zeros((n, T + 1))
+        X[np.arange(n), hi[m]] = 1.0
+        X[np.arange(n), ai[m]] = -1.0
+        X[:, T] = 1.0
+        A = X * w[:, None]
+        R = MR_RIDGE * np.eye(T + 1)
+        R[T, T] = 1e-6
+        r = np.linalg.solve(A.T @ A + R, A.T @ (lm[m] * w))
+        return {t: float(r[ix[t]]) for t in teams}
+
+    merkmal = {}
+    wochen = games_all[games_all["season"] >= TRAIN_FROM - 1].dropna(subset=["gameday"])
+    for (s, w), d0 in wochen.groupby(["season", "week"])["gameday"].min().items():
+        r = fit(pd.Timestamp(d0))
+        if r is None:
+            continue
+        for h, a in wochen.loc[(wochen["season"] == s) & (wochen["week"] == w), ["home_team", "away_team"]].values:
+            merkmal[(int(s), int(w), h, a)] = r.get(MR_UMZUG.get(h, h), 0.0) - r.get(MR_UMZUG.get(a, a), 0.0)
+    offen = games_all[games_all["home_score"].isna() & games_all["gameday"].notna()]
+    stichtag = pd.Timestamp(offen["gameday"].min()) if len(offen) else pd.Timestamp.now().normalize()
+    aktuell = fit(stichtag) or {}
+    return merkmal, aktuell
 
 
 def compute_elo(games):
@@ -240,6 +320,8 @@ def main():
         print(f"  Saison-Regression angewandt ({last_elo_season} -> {current_season})")
     games["elo_home"], games["elo_away"] = eh, ea
     games["elo_diff"] = games["elo_home"] + HOME_ADV - games["elo_away"]
+    mr_spiel, mr_aktuell = markt_ratings(games_all)
+    print(f"  Markt-Ratings: {len(mr_spiel)} Spiele, {len(mr_aktuell)} Teams aktuell")
 
     print("Lade Team-Stats...")
     frames = [df for y in range(STATS_FROM, current_season + 1)
@@ -484,6 +566,8 @@ def main():
             return 0
         return 1 if (TZ.get(r["away_team"], 0) - TZ.get(r["home_team"], 0)) <= -2 and hour <= 13 else 0
     df["west_early_away"] = df.apply(west_early, axis=1)
+    df["mkt_diff"] = [mr_spiel.get((int(s), int(w), h, a), np.nan)
+                      for s, w, h, a in zip(df["season"], df["week_i"], df["home_team"], df["away_team"])]
     df["y"] = (df["home_score"] > df["away_score"]).astype(int)
     df = df[df["home_score"] != df["away_score"]].dropna(subset=FEATURE_ORDER)
 
@@ -572,6 +656,7 @@ def main():
             "qb": team_qb.get(t, {}).get("rating", QB_REPL),
             "qb_new": team_qb.get(t, {}).get("new", 1),
             "qb_name": team_qb.get(t, {}).get("name", ""),
+            "mr": round(mr_aktuell.get(t, 0.0), 4),
         }
         if qb_lage.get(t, {}).get("verletzt"):
             v = qb_lage[t]
@@ -695,6 +780,11 @@ def main():
                             pl_alle if pframes else None, model_now, current_season)
     print(f"  QB-Ranking: {len(qb_board)} Teams")
 
+    frueh = frueh_protokoll(games_all, teams, model_now, current_season)
+    if frueh.get("n"):
+        print(f"  Dienstags-Messung: {frueh['n']} abgerechnet, Bewegung zur Modellseite "
+              f"{frueh.get('bewegung', 0):+.2f} Pkt (t = {frueh.get('t')})")
+    kib = ki_bewegung(games_all, teams, model_now, current_season)
     schein = wochenschein(games_all, teams, model_now, current_season, analysis, line_moves)
     if schein:
         print(f"  Wochenschein: {len(schein['tipps'])} Tipps fuer Woche {schein['woche']}"
@@ -703,7 +793,7 @@ def main():
     out = {"generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
            "season": current_season, "last_result": str(games["gameday"].max()),
            "teams": teams, "schedule": sched, "proj": proj, "duel": duel,
-           "kiadj": kiadj, "qbs": qb_board, "schein": schein, "picks": frozen_picks, "analysis": analysis, "archetypes": ARCHETYPES,
+           "kiadj": kiadj, "qbs": qb_board, "schein": schein, "frueh": frueh, "ki_bewegung": kib, "picks": frozen_picks, "analysis": analysis, "archetypes": ARCHETYPES,
            "lineups": lineups, "depth": depth, "line_moves": line_moves, "lineup_season": lineup_season,
            "arch_corr": ARCH_CORR, "edge_sources": EDGE_SOURCES}
     if not sanity_checks(out, model_now, sched, teams, proj):
@@ -1005,6 +1095,234 @@ def track_lines(games_all, season):
                           "move": round(move, 1), "since": hist[0][1][:10],
                           "steps": len(hist)}
     return moves
+
+
+# ------------------------------------------------------------ Dienstags-Messung
+#
+# Warum: Die offiziellen Picks werden 2,5 h vor Anpfiff eingefroren - wenn der
+# Markt am schaerfsten ist. Rekonstruiert aus dem Git-Verlauf zeigte sich in den
+# Wochen 1-8 der Saison 2026: Lag unser Modell am Dienstag der Spielwoche mehr
+# als 5 Punkte ueber der Quote, bewegte sich der Markt bis zum Anpfiff im Schnitt
+# 1,5 Punkte auf das Modell zu (Korrelation +0,25, t = 2,67, 106 Spiele). Das ist
+# die einzige Stelle, an der das Modell erkennbar etwas weiss, das der Markt
+# erst spaeter einpreist. Eine Saison ist zu wenig - deshalb wird es ab jetzt
+# vorab eingefroren und gemessen.
+#
+# Gemessen wird an der MARKTBEWEGUNG, nicht nur am Ergebnis. Die Bewegung bis
+# zum Anpfiff rauscht viel weniger als Sieg oder Niederlage; ein echter Vorsprung
+# zeigt sich dort nach etwa hundert Spielen statt nach zweitausend.
+FRUEH_MAX_TAGE = 6.0        # fruehestens 6 Tage vor Anpfiff ...
+FRUEH_MIN_STUNDEN = 24.0    # ... und spaetestens 24 Stunden davor
+FRUEH_SCHWELLE = 0.05       # Dienstags-Schein: Modell mindestens 5 Punkte ueber der Quote
+FRUEH_MIN_QUOTE = 1.30      # kleinere Quoten kommen nicht auf den Schein
+
+
+def _markt_heim(g):
+    """Entvigte Heim-Wahrscheinlichkeit und beide Dezimalquoten - oder Nones."""
+    dh, da = ml_to_dec(g["home_moneyline"]), ml_to_dec(g["away_moneyline"])
+    if not dh or not da:
+        return None, None, None
+    return (1 / dh) / ((1 / dh) + (1 / da)), dh, da
+
+
+def _spiel(g):
+    return {"h": g["home_team"], "a": g["away_team"],
+            "hr": int(g["home_rest"]) if pd.notna(g["home_rest"]) else 7,
+            "ar": int(g["away_rest"]) if pd.notna(g["away_rest"]) else 7,
+            "t": g["gametime"] if pd.notna(g["gametime"]) else ""}
+
+
+def _t_wert(x):
+    x = np.asarray(x, dtype=float)
+    if len(x) < 3 or x.std(ddof=1) == 0:
+        return None
+    return float(x.mean() / (x.std(ddof=1) / np.sqrt(len(x))))
+
+
+def frueh_protokoll(games_all, teams, model, season, path="data/frueh_protokoll.csv"):
+    """Friert Modell und Quote 1-6 Tage vor Anpfiff ein und rechnet spaeter ab.
+
+    Jede Zeile wird genau einmal geschrieben - beim ersten Lauf im Fenster,
+    praktisch am Dienstag oder Mittwoch - und danach nie veraendert.
+      seite    das Team, das das Modell hoeher sieht als der Markt
+      abstand  Modell minus Markt fuer das HEIMteam
+      wette    1, wenn der Abstand mindestens 5 Punkte betraegt und die Quote
+               der Modellseite mindestens 1,30 - das ist der Dienstags-Schein
+    """
+    import csv
+    KOPF = ["key", "stamp", "stunden", "p_modell", "p_markt", "q_heim", "q_gast",
+            "heim", "seite", "abstand", "wette"]
+    zeilen = {}
+    if os.path.exists(path):
+        with open(path) as f:
+            for r in list(csv.reader(f))[1:]:
+                if len(r) >= len(KOPF):
+                    zeilen[r[0]] = r
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cur = games_all[games_all["season"] == season]
+    neu = 0
+    for _, g in cur.iterrows():
+        if pd.notna(g["home_score"]):
+            continue
+        key = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
+        if key in zeilen:
+            continue
+        ko = kickoff_utc(g)
+        if ko is None:
+            continue
+        std = (ko - now).total_seconds() / 3600
+        if not (FRUEH_MIN_STUNDEN <= std <= FRUEH_MAX_TAGE * 24):
+            continue
+        pm, dh, da = _markt_heim(g)
+        p = predict_game(_spiel(g), teams, model)
+        if pm is None or p is None:
+            continue
+        ab = p - pm
+        seite = g["home_team"] if ab > 0 else g["away_team"]
+        q = dh if seite == g["home_team"] else da
+        wette = 1 if abs(ab) >= FRUEH_SCHWELLE and q >= FRUEH_MIN_QUOTE else 0
+        zeilen[key] = [key, now.isoformat(timespec="minutes"), f"{std:.1f}", f"{p:.4f}", f"{pm:.4f}",
+                       f"{dh:.2f}", f"{da:.2f}", g["home_team"], seite, f"{ab:.4f}", str(wette)]
+        neu += 1
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(KOPF)
+        for k in sorted(zeilen, key=lambda x: (int(x.split("-")[0]), x)):
+            w.writerow(zeilen[k])
+    if neu:
+        print(f"  Dienstags-Messung: {neu} Spiele vorab eingefroren")
+
+    # ---------- Auswertung ----------
+    info = {}
+    for _, g in cur.iterrows():
+        key = f"{int(g['week'])}-{g['away_team']}-{g['home_team']}"
+        ko = kickoff_utc(g)
+        pm, dh, da = _markt_heim(g)
+        info[key] = {"ko": ko, "pm": pm, "dh": dh, "da": da, "a": g["away_team"], "h": g["home_team"],
+                     "sieger": (g["home_team"] if g["home_score"] > g["away_score"] else
+                                g["away_team"] if g["away_score"] > g["home_score"] else None)
+                     if pd.notna(g["home_score"]) else "offen"}
+    dev, mov_heim, mov_seite, wetten, offen = [], [], [], [], []
+    for key, r in zeilen.items():
+        i = info.get(key)
+        if not i:
+            continue
+        ab, pm0, seite = float(r[9]), float(r[4]), r[8]
+        gestartet = i["ko"] is not None and i["ko"] <= now
+        if gestartet and i["pm"] is not None:
+            mh = i["pm"] - pm0
+            ms = mh if seite == r[7] else -mh
+            dev.append(ab); mov_heim.append(mh); mov_seite.append(ms)
+        if r[10] == "1":
+            q = float(r[5]) if seite == r[7] else float(r[6])
+            if i["sieger"] not in ("offen", None):
+                wetten.append({"gewinn": (q - 1) if i["sieger"] == seite else -1.0,
+                               "bewegung": (ms if gestartet and i["pm"] is not None else None)})
+            elif not gestartet:
+                p_seite = float(r[3]) if seite == r[7] else 1 - float(r[3])
+                pm_seite0 = pm0 if seite == r[7] else 1 - pm0
+                pm_jetzt = None if i["pm"] is None else (i["pm"] if seite == r[7] else 1 - i["pm"])
+                q_jetzt = None if not i["dh"] else (i["dh"] if seite == r[7] else i["da"])
+                offen.append({"key": key, "team": seite, "gegner": i["a"] if seite == i["h"] else i["h"],
+                              "heim": seite == i["h"], "ko": i["ko"].isoformat(timespec="minutes"),
+                              "quote": q, "quote_jetzt": q_jetzt, "p_modell": round(p_seite, 4),
+                              "p_markt": round(pm_seite0, 4),
+                              "p_markt_jetzt": None if pm_jetzt is None else round(pm_jetzt, 4),
+                              "stamp": r[1]})
+    res = {"regeln": {"max_tage": FRUEH_MAX_TAGE, "min_stunden": FRUEH_MIN_STUNDEN,
+                      "schwelle": FRUEH_SCHWELLE, "min_quote": FRUEH_MIN_QUOTE},
+           "eingefroren": len(zeilen), "n": len(dev), "offen": sorted(offen, key=lambda x: x["ko"])}
+    if len(dev) >= 3:
+        korr = float(np.corrcoef(dev, mov_heim)[0, 1]) if np.std(dev) > 0 and np.std(mov_heim) > 0 else None
+        res.update({"korr": None if korr is None else round(korr, 3),
+                    "t": None if korr is None or abs(korr) >= 1 else
+                    round(korr * math.sqrt((len(dev) - 2) / (1 - korr ** 2)), 2),
+                    "bewegung": round(100 * float(np.mean(mov_seite)), 2),
+                    "zu_uns": round(100 * float(np.mean(np.array(mov_seite) > 0.005)), 1),
+                    "weg": round(100 * float(np.mean(np.array(mov_seite) < -0.005)), 1)})
+    if wetten:
+        gw = [w["gewinn"] for w in wetten]
+        bw = [w["bewegung"] for w in wetten if w["bewegung"] is not None]
+        res["wetten"] = {"n": len(gw), "treffer": int(sum(1 for x in gw if x > 0)),
+                         "roi": round(float(np.mean(gw)), 4),
+                         "bewegung": round(100 * float(np.mean(bw)), 2) if bw else None,
+                         "t_bewegung": None if _t_wert(bw) is None else round(_t_wert(bw), 2)}
+    return res
+
+
+def ki_bewegung(games_all, teams, model, season, path="data/ki_bewegung.csv"):
+    """Misst die KI-Recherche an der Marktbewegung statt nur am Ergebnis.
+
+    Fuer jede Anpassung der KI wird im ersten Lauf nach der Recherche
+    festgehalten, wo Modell, Modell+KI und Markt in diesem Moment stehen. Zieht
+    der Markt bis zum Anpfiff in die Richtung, in die die KI das Modell geschoben
+    hat, wusste sie etwas, bevor es eingepreist war. Das laesst sich nach einigen
+    Dutzend Anpassungen beurteilen - ueber die Ergebnisse allein erst nach
+    Jahren (ki_test.py, Stand Nov. 2026: 17 Spiele, Urteil fruehestens 2027).
+    """
+    import csv
+    try:
+        with open("data/ai_context.json") as f:
+            ki = json.load(f).get("games", {})
+    except (FileNotFoundError, json.JSONDecodeError, AttributeError):
+        ki = {}
+    KOPF = ["key", "ki_datum", "stamp", "ha", "aa", "p_modell", "p_ki", "p_markt"]
+    zeilen = {}
+    if os.path.exists(path):
+        with open(path) as f:
+            for r in list(csv.reader(f))[1:]:
+                if len(r) >= len(KOPF):
+                    zeilen[(r[0], r[1])] = r
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cur = games_all[games_all["season"] == season]
+    spiele = {f"{int(g['week'])}-{g['away_team']}-{g['home_team']}": g for _, g in cur.iterrows()}
+    neu = 0
+    for key, adj in ki.items():
+        ha, aa = int(adj.get("ha", 0) or 0), int(adj.get("aa", 0) or 0)
+        if not (ha or aa) or key not in spiele:
+            continue
+        k = (key, str(adj.get("date", "")))
+        if k in zeilen:
+            continue
+        g = spiele[key]
+        ko = kickoff_utc(g)
+        if pd.notna(g["home_score"]) or ko is None or ko <= now:
+            continue
+        pm, _, _ = _markt_heim(g)
+        p0 = predict_game(_spiel(g), teams, model)
+        p1 = predict_game(_spiel(g), teams, model, ha, aa)
+        if pm is None or p0 is None or p1 is None:
+            continue
+        zeilen[k] = [key, k[1], now.isoformat(timespec="minutes"), str(ha), str(aa),
+                     f"{p0:.4f}", f"{p1:.4f}", f"{pm:.4f}"]
+        neu += 1
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(KOPF)
+        for k in sorted(zeilen):
+            w.writerow(zeilen[k])
+    if neu:
+        print(f"  KI-Bewegung: {neu} Anpassungen mit Marktstand festgehalten")
+    richt = []
+    for (key, _), r in zeilen.items():
+        g = spiele.get(key)
+        if g is None:
+            continue
+        ko = kickoff_utc(g)
+        pm, _, _ = _markt_heim(g)
+        if ko is None or ko > now or pm is None:
+            continue
+        shift = float(r[6]) - float(r[5])
+        if shift == 0:
+            continue
+        richt.append(np.sign(shift) * (pm - float(r[7])))
+    res = {"n": len(richt), "gesamt": len(zeilen)}
+    if richt:
+        res.update({"bewegung": round(100 * float(np.mean(richt)), 2),
+                    "mit_ki": round(100 * float(np.mean(np.array(richt) > 0.005)), 1),
+                    "gegen_ki": round(100 * float(np.mean(np.array(richt) < -0.005)), 1),
+                    "t": None if _t_wert(richt) is None else round(_t_wert(richt), 2)})
+    return res
 
 
 # ---------------------------------------------------------------- Wochenschein
@@ -1403,6 +1721,7 @@ def feature_vector(g, teams, model, adj_home=0, adj_away=0):
         (1 if hr >= 13 else 0) - (1 if ar >= 13 else 0),
         abs(TZ.get(g["h"], 0) - TZ.get(g["a"], 0)),
         1 if (TZ.get(g["a"], 0) - TZ.get(g["h"], 0)) <= -2 and hour <= 13 else 0,
+        h.get("mr", 0.0) - a.get("mr", 0.0),
     ]
 
 
@@ -1446,7 +1765,7 @@ def edge_attribution(g, teams, model, p_model):
     return {"edge": round(100 * (p_model - p_mkt), 1),
             "p_mkt": round(100 * p_mkt, 1),
             "src": top,
-            "src_label": EDGE_SOURCES.get(top, {}).get("label", top),
+            "src_label": EDGE_SOURCES.get(top, {}).get("label", QUELLEN_LABEL.get(top, top)),
             "trust": EDGE_SOURCES.get(top, {}).get("trust", "unbekannt"),
             "parts": [[f, round(z, 3)] for f, z in parts[:4]]}
 
@@ -1705,6 +2024,7 @@ def predict_game(g, teams, model, adj_home=0, adj_away=0):
         (1 if hr >= 13 else 0) - (1 if ar >= 13 else 0),
         abs(TZ.get(g["h"], 0) - TZ.get(g["a"], 0)),
         1 if (TZ.get(g["a"], 0) - TZ.get(g["h"], 0)) <= -2 and hour <= 13 else 0,
+        h.get("mr", 0.0) - a.get("mr", 0.0),
     ]
     z = model["intercept"]
     for i, v in enumerate(x):

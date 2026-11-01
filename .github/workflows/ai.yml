@@ -8,6 +8,13 @@ name: KI-Kontextanalyse
 # nicht knapp davor.
 on:
   schedule:
+    # Mi 20:37 UTC - nach dem ersten offiziellen Verletzungsbericht der Woche
+    # (Mittwoch nachmittags US-Zeit). Hier ist eine Recherche am wertvollsten:
+    # Die Nachricht ist da, der Markt hat sie oft noch nicht voll eingepreist.
+    # Ob die KI dem Markt voraus ist, misst update_data.py (ki_bewegung) an der
+    # Quotenbewegung bis zum Anpfiff. Bei 4-6 h Verzug landet der Lauf in der
+    # Nacht auf Donnerstag - weit vor dem Lock des Donnerstagsspiels.
+    - cron: "37 20 * * 3"
     # Do 12:23 UTC - nur das Donnerstagsspiel (AI_MAX_DAYS=1), Lock Do 21:50 UTC
     - cron: "23 12 * * 4"
     # So 04:23 UTC - Hauptlauf fuer den Sonntag, Lock der Nachmittagsspiele 14:30 UTC.

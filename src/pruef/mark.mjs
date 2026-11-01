@@ -21,7 +21,7 @@ await page.click("summary");
 await page.waitForTimeout(300);
 const t = await page.evaluate(() => document.querySelector("main").innerText);
 const chips = await page.evaluate(() => [...document.querySelectorAll("section span")]
-  .map((s) => s.innerText).filter((x) => /^(BANK|MÜNZWURF|GEGEN DEN MARKT|Bank|Münzwurf|Gegen den Markt)$/i.test(x)));
+  .map((s) => s.innerText).filter((x) => /^(BANK|MÜNZWURF|GEGEN DEN MARKT|MODELL DAGEGEN|Bank|Münzwurf|Gegen den Markt|Modell dagegen)$/i.test(x)));
 const zaehl = {}; chips.forEach((c) => zaehl[c.toUpperCase()] = (zaehl[c.toUpperCase()] || 0) + 1);
 console.log("Markierungen in Woche 3:", JSON.stringify(zaehl));
 const i = t.indexOf("WOCHE 3"); console.log(t.slice(i, i + 700));

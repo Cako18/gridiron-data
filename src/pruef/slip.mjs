@@ -20,11 +20,12 @@ await page.getByRole("button", { name: "TIPPSCHEIN" }).click();
 await page.waitForTimeout(400);
 console.log("### vor der Auswahl ###");
 console.log((await page.evaluate(() => document.body.innerText)).split("\n").slice(7).join("\n").slice(0, 700));
-await page.getByRole("button", { name: "Woche 3", exact: true }).first().click();
+// erste angebotene Woche - welche das ist, haengt vom Datenstand ab
+await page.locator("button[aria-label^='Woche']").first().click();
 await page.waitForTimeout(300);
 await page.getByRole("button", { name: "2 Aussenseiter + 4 Favoriten" }).click();
 await page.waitForTimeout(400);
-console.log("\n### Woche 3, nach 2+4 ###");
+console.log("\n### erste offene Woche, nach 2+4 ###");
 console.log((await page.evaluate(() => document.body.innerText)).split("\n").slice(7).join("\n").slice(0, 800));
 await page.screenshot({ path: "pruef/slip.png" });
 console.log("\n" + (fehler.length ? "FEHLER:\n" + fehler.join("\n") : "Keine Konsolenfehler."));

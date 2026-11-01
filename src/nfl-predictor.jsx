@@ -129,6 +129,9 @@ function features(game, teams, kiadj = {}) {
     tz_shift_away: Math.abs(tzH - tzA),
     // Gast mindestens zwei Zonen westlich und Anstoss um 13 Uhr ET oder frueher
     west_early_away: tzA - tzH <= -2 && !isNaN(stunde) && stunde <= 13 ? 1 : 0,
+    // Teamstaerke laut den Schlussquoten vergangener Spiele (seit Nov. 2026,
+    // update_data.py: markt_ratings). Fehlt der Wert, bleibt das Merkmal weg.
+    mkt_diff: h.mr !== undefined && a.mr !== undefined ? h.mr - a.mr : undefined,
   };
 }
 
@@ -382,12 +385,15 @@ function Wochenvorschau({ data, model, ki, woche }) {
       const key = `${g.w}-${g.a}-${g.h}`;
       const pk = data.picks[key];
       const pHome = predictHome(model, features(g, data.teams, data.kiadj));
-      const tipp = pk ? pk.pick : pHome === null ? null : pHome >= 0.5 ? g.h : g.a;
-      const p = pk ? pk.p : pHome === null ? null : Math.max(pHome, 1 - pHome);
+      const modellTipp = pk ? pk.pick : pHome === null ? null : pHome >= 0.5 ? g.h : g.a;
       const mh = marketHome(g);
-      const marktTipp = pk && pk.vp ? pk.vp : mh === null ? null : mh >= 0.5 ? g.h : g.a;
+      const marktTipp = mh === null ? null : mh >= 0.5 ? g.h : g.a;
+      // Prognose = Quote; ohne Quote das Modell
+      const tipp = marktTipp || modellTipp;
+      const p = mh !== null ? Math.max(mh, 1 - mh) : pk ? pk.p : pHome === null ? null : Math.max(pHome, 1 - pHome);
       const an = data.analysis[key];
-      return { g, key, tipp, p, marktTipp, an, gegenMarkt: tipp && marktTipp && tipp !== marktTipp };
+      return { g, key, tipp, p, marktTipp, modellTipp, an,
+               gegenMarkt: modellTipp && marktTipp && modellTipp !== marktTipp };
     }).filter((x) => x.tipp);
 
     const gegen = mit.filter((x) => x.gegenMarkt);
@@ -424,13 +430,13 @@ function Wochenvorschau({ data, model, ki, woche }) {
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         {kachel(punkte.anzahl, "offene Spiele")}
-        {kachel(punkte.gegen.length, "gegen den Markt", punkte.gegen.length ? C.red : C.text)}
+        {kachel(punkte.gegen.length, "Modell dagegen", punkte.gegen.length ? C.red : C.text)}
         {punkte.sicher && kachel(pct(punkte.sicher.p), `sicherster: ${punkte.sicher.tipp}`, C.green)}
       </div>
       <div style={{ fontFamily: FONT.body, fontSize: 13, color: C.text2, lineHeight: 1.6 }}>
         {punkte.gegen.length === 0
           ? "Das Modell ist sich diese Woche mit dem Markt über jeden Sieger einig."
-          : <>Gegen den Markt: <b style={{ color: C.text }}>{punkte.gegen.map((x) => `${x.tipp} statt ${x.marktTipp}`).join(", ")}</b>.{" "}
+          : <>Modell sieht anders: <b style={{ color: C.text }}>{punkte.gegen.map((x) => `${x.modellTipp} statt ${x.marktTipp}`).join(", ")}</b>.{" "}
               <span style={{ color: C.muted }}>Historisch lag in solchen Fällen der Markt zu {(100 - BACKTEST.gegen.real).toFixed(0)} % richtig.</span></>}
         {punkte.knapp.length > 0 && (
           <div style={{ marginTop: 4 }}>
@@ -531,10 +537,28 @@ function WochenWahl({ wochen, woche, setWoche, rand = "16px 16px 6px" }) {
 const BACKTEST = {
   zeitraum: "2016\u20132025",
   n: 2671,
-  bank: { n: 932, real: 76.9, markt: 75.4 },
-  muenz: { n: 463, real: 59.2 },
+  // Seit November 2026 beziehen sich BANK und Muenzwurf auf die PROGNOSE, also
+  // die Marktwahrscheinlichkeit - sie ist die genauere Zahl (66,5 % Treffer gegen
+  // 64,5 % fuers Modell). Gemessen an den Schlussquoten 2016-2025.
+  bank: { n: 939, real: 80.1, gesagt: 77.6 },
+  muenz: { n: 647, real: 53.8 },
+  // Modell-Tipp gegen den Marktfavoriten, walk-forward 2016-2025
   gegen: { n: 372, real: 42.7, lo: 37.7, hi: 47.8 },
 };
+
+/**
+ * Die Prognose eines Spiels: die Marktwahrscheinlichkeit, wenn es Quoten gibt,
+ * sonst das Modell. Ueber zehn Jahre traf der Markt 66,5 %, das Modell 64,5 %;
+ * das Modell zusaetzlich auf die Quote zu setzen brachte nichts (LogLoss 0,6083
+ * gegen 0,6082). Die beste Zahl, die wir zeigen koennen, ist deshalb die Quote -
+ * das Modell steht als zweite Meinung daneben, und das Vegas-Duell misst es weiter.
+ */
+function prognose(game, pick, pModelHome) {
+  const pm = marketHome(game);
+  if (pm !== null) return { pHeim: pm, quelle: "markt" };
+  if (pModelHome !== null && pModelHome !== undefined) return { pHeim: pModelHome, quelle: "modell" };
+  return { pHeim: null, quelle: null };
+}
 
 /**
  * Einordnung eines Spiels. Bewusst gestrichen: "Favorit wackelt" - gleicher
@@ -543,17 +567,17 @@ const BACKTEST = {
  * Die Markierung warnte vor etwas, das nicht eintritt; sie war nur die
  * geringere Sicherheit des Modells in anderer Verkleidung.
  */
-function markierung(tipp, p, marktTipp) {
-  if (!tipp || p === null) return null;
-  if (marktTipp && tipp !== marktTipp) {
+function markierung(prognoseTipp, pPrognose, modellTipp) {
+  if (!prognoseTipp || pPrognose === null) return null;
+  if (modellTipp && modellTipp !== prognoseTipp) {
     return {
-      id: "gegen", label: "Gegen den Markt", farbe: C.red,
-      text: `Das Modell tippt den Aussenseiter. In solchen Faellen hatte der Markt ` +
-            `${(100 - BACKTEST.gegen.real).toFixed(0)} % recht (${BACKTEST.gegen.n} Spiele, ${BACKTEST.zeitraum}).`,
+      id: "gegen", label: "Modell dagegen", farbe: C.red,
+      text: `Unser Modell sieht ${name(modellTipp)} vorn, der Markt ${name(prognoseTipp)}. In solchen Faellen ` +
+            `hatte der Markt ${(100 - BACKTEST.gegen.real).toFixed(0)} % recht (${BACKTEST.gegen.n} Spiele, ${BACKTEST.zeitraum}).`,
     };
   }
-  if (p >= 0.7) return { id: "bank", label: "Bank", farbe: C.green };
-  if (p < 0.58) return { id: "muenz", label: "Münzwurf", farbe: C.muted };
+  if (pPrognose >= 0.7) return { id: "bank", label: "Bank", farbe: C.green };
+  if (pPrognose < 0.58) return { id: "muenz", label: "Münzwurf", farbe: C.muted };
   return null;
 }
 
@@ -567,20 +591,19 @@ function Markierungslegende({ duel }) {
         Was die Markierungen bedeuten
       </summary>
       <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted, lineHeight: 1.8, marginTop: 8 }}>
-        Gemessen an {BACKTEST.n} Spielen von {BACKTEST.zeitraum}. Jede Saison wurde mit
-        einem Modell vorhergesagt, das nur die Jahre davor kannte:
+        Die gro&szlig;en Prozente sind die <b style={{ color: C.text2 }}>Prognose</b>: die Marktquote ohne
+        Buchmacher-Marge. Sie ist die genaueste Zahl, die es gibt &ndash; {BACKTEST.zeitraum} traf sie 66,5 %,
+        unser Modell 64,5 %. Das Modell steht unten auf jeder Karte als zweite Meinung.
         <br /><br />
-        <span style={{ color: C.green }}>BANK</span> &ndash; Favorit mit mindestens 70 %.
-        Gewann {BACKTEST.bank.real} % ({BACKTEST.bank.n} Spiele). Der Markt hatte {BACKTEST.bank.markt} % gesagt
-        &ndash; also etwas naeher dran als das Modell.
+        <span style={{ color: C.green }}>BANK</span> &ndash; Prognose mindestens 70 %.
+        Gewann {BACKTEST.bank.real} % ({BACKTEST.bank.n} Spiele, versprochen {BACKTEST.bank.gesagt} %).
         <br />
-        <span style={{ color: C.text2 }}>M&Uuml;NZWURF</span> &ndash; unter 58 %. Traf {BACKTEST.muenz.real} %.
+        <span style={{ color: C.text2 }}>M&Uuml;NZWURF</span> &ndash; Prognose unter 58 %. Traf {BACKTEST.muenz.real} %.
         Enge Spiele sind eng, da gibt es nichts herauszulesen.
         <br />
-        <span style={{ color: C.red }}>GEGEN DEN MARKT</span> &ndash; das Modell sieht einen anderen Sieger als
-        die Buchmacher. Es lag dabei nur in <strong style={{ color: C.red }}>{BACKTEST.gegen.real} %</strong> richtig
-        (95 %: {BACKTEST.gegen.lo}&ndash;{BACKTEST.gegen.hi} %) &ndash; signifikant schlechter als ein Muenzwurf.
-        Wer hier tippt, sollte auf die Seite des Marktes setzen.
+        <span style={{ color: C.red }}>MODELL DAGEGEN</span> &ndash; unser Modell sieht einen anderen Sieger als
+        der Markt. Es lag dabei nur in <strong style={{ color: C.red }}>{BACKTEST.gegen.real} %</strong> richtig
+        (95 %: {BACKTEST.gegen.lo}&ndash;{BACKTEST.gegen.hi} %, walk-forward) &ndash; schlechter als ein Muenzwurf.
         {duel && duel.dis_n > 0 && (
           <> Diese Saison bisher: {duel.dis_m} von {duel.dis_n}.</>
         )}
@@ -597,15 +620,19 @@ function SpielZeile({ game, pick, pModel, pMarkt }) {
   const gespielt = game.hs !== null && game.as !== null;
   const sieger = gespielt ? (game.hs > game.as ? game.h : game.as > game.hs ? game.a : null) : null;
 
-  // Eingefrorener Pick hat Vorrang vor der Neuberechnung - so misst die
+  // Modell: eingefrorener Pick hat Vorrang vor der Neuberechnung - so misst die
   // Bilanz das Modell zum Zeitpunkt des Locks, nicht das von heute.
-  const tipp = pick ? pick.pick : pModel === null ? null : pModel >= 0.5 ? game.h : game.a;
-  const p = pick ? pick.p : pModel === null ? null : Math.max(pModel, 1 - pModel);
-  const marktTipp = pick && pick.vp ? pick.vp : pMarkt === null ? null : pMarkt >= 0.5 ? game.h : game.a;
-  const pHeim = tipp === null || p === null ? null : tipp === game.h ? p : 1 - p;
+  const modellTipp = pick ? pick.pick : pModel === null ? null : pModel >= 0.5 ? game.h : game.a;
+  const pModellTipp = pick ? pick.p : pModel === null ? null : Math.max(pModel, 1 - pModel);
+  const pModellHeim = modellTipp === null ? null : modellTipp === game.h ? pModellTipp : 1 - pModellTipp;
+
+  // Prognose: die Quote. Fuer gespielte Partien der Marktfavorit vom Lock.
+  const { pHeim, quelle } = prognose(game, pick, pModellHeim);
+  const tipp = pick && pick.vp && gespielt ? pick.vp : pHeim === null ? null : pHeim >= 0.5 ? game.h : game.a;
+  const p = pHeim === null ? null : Math.max(pHeim, 1 - pHeim);
 
   const treffer = gespielt && tipp ? tipp === sieger : null;
-  const mark = markierung(tipp, p, marktTipp);
+  const mark = markierung(tipp, p, quelle === "markt" ? modellTipp : null);
   const gegen = mark && mark.id === "gegen" && !gespielt;
 
   const zeile = (code, punkte, pTeam) => {
@@ -693,8 +720,9 @@ function SpielZeile({ game, pick, pModel, pMarkt }) {
         display: "flex", justifyContent: "space-between", gap: 8, padding: "9px 14px 11px",
         fontFamily: FONT.mono, fontSize: 10, color: C.muted,
       }}>
-        <span>Modell <b style={{ color: C.text2, fontWeight: 500 }}>{tipp ? `${tipp} ${pct(p)}` : "–"}</b></span>
-        <span>{pMarkt !== null ? <>Markt <b style={{ color: C.text2, fontWeight: 500 }}>{marktTipp} {pct(Math.max(pMarkt, 1 - pMarkt))}</b></> : "keine Quote"}</span>
+        <span>{quelle === "markt" ? "Prognose = Marktquote" : quelle === "modell" ? "Prognose = Modell (noch keine Quote)" : ""}</span>
+        <span>Modell <b style={{ color: modellTipp && tipp && modellTipp !== tipp ? C.red : C.text2, fontWeight: 500 }}>
+          {modellTipp ? `${modellTipp} ${pct(pModellTipp)}` : "–"}</b></span>
       </div>
 
       {/* Nur vor dem Spiel: danach ist der Hinweis Geschichte und die Farbe sagt alles. */}
@@ -913,7 +941,10 @@ function useLiveSpiele(aktiv, data, model) {
      */
     const pPre = (h, a) => {
       const g = imPlan(h, a) || { h, a, hr: 7, ar: 7 };
-      const p = predictHome(model, features(g, data.teams, {}));
+      // Prognose: die Quote, wenn es eine gibt - sie ist vor dem Anpfiff die
+      // genauere Zahl. Sonst das Modell.
+      const pm = g.mh && g.ma ? marketHome(g) : null;
+      const p = pm !== null ? pm : predictHome(model, features(g, data.teams, {}));
       return p === null ? 0.5 : Math.min(0.97, Math.max(0.03, p));
     };
 
@@ -1189,7 +1220,7 @@ function LiveKarte({ sp, kurve, pick }) {
   // Tipp-Haekchen aus dem EINGEFRORENEN Pick. Die alte Fassung rechnete den
   // Tipp nach dem Spiel mit dem Modell von heute neu aus - genau der
   // Rueckschaufehler, der die Wochenbilanz einmal auf 94 statt 75 % geschoent hat.
-  const tipp = fertig && !sp.pre && pick ? pick.pick : null;
+  const tipp = fertig && !sp.pre && pick ? (pick.vp || pick.pick) : null;
 
   return (
     <div className="cako-rein" style={{
@@ -1321,7 +1352,7 @@ function LiveTab({ data, model }) {
   const kommend = useMemo(() => {
     const ausFeed = spiele.filter((s) => s.state === "pre" && s.ko).map((s) => {
       const pk = pickFuer(s);
-      const p = s.pre ? null : pk ? (pk.pick === s.h ? pk.p : 1 - pk.p) : s.pPre;
+      const p = s.pre ? null : s.pPre;
       return { h: s.h, a: s.a, ko: s.ko, pre: s.pre, p };
     });
     const bekannt = new Set(ausFeed.map((k) => k.h + k.a));
@@ -1513,6 +1544,99 @@ function Wochenschein({ schein }) {
   );
 }
 
+/** Kleine Kennzahl-Kachel fuer die Messungen. */
+function Messwert({ titel, wert, unter, farbe_ = C.text }) {
+  return (
+    <div style={{ flex: "1 1 140px", padding: "10px 12px", borderRadius: 10, background: C.surface, border: `1px solid ${C.line}` }}>
+      <div style={{ fontFamily: FONT.head, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted }}>{titel}</div>
+      <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 26, lineHeight: 1.1, color: farbe_ }}>{wert}</div>
+      {unter && <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>{unter}</div>}
+    </div>
+  );
+}
+
+const vz = (x, d = 2) => (x === null || x === undefined ? "–" : `${x > 0 ? "+" : ""}${Number(x).toFixed(d)}`);
+
+/** Stand der Frueh-Messung: bewegt sich der Markt nach unserem Tipp auf uns zu? */
+function FruehMessung({ frueh }) {
+  if (!frueh) return null;
+  if (!frueh.n) {
+    return (
+      <p style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted, lineHeight: 1.7, margin: "0 0 8px" }}>
+        Läuft seit November 2026. {frueh.eingefroren} Spiele eingefroren, noch keines angepfiffen.
+      </p>
+    );
+  }
+  const w = frueh.wetten;
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+      <Messwert titel="Bewegung zu uns" wert={`${vz(frueh.bewegung)} Pkt`}
+                farbe_={frueh.bewegung > 0 ? C.green : C.red}
+                unter={`${frueh.n} Spiele · t = ${frueh.t ?? "–"} · zu uns ${frueh.zu_uns ?? "–"} %, weg ${frueh.weg ?? "–"} %`} />
+      {w && <Messwert titel="Früh-Wetten" wert={`${vz(w.roi * 100, 1)} %`} farbe_={w.roi > 0 ? C.green : C.red}
+                      unter={`${w.treffer}/${w.n} getroffen · flach je 1 Einheit`} />}
+    </div>
+  );
+}
+
+/** Der Frueh-Schein: Tipps, bei denen das Modell 1-6 Tage vorher klar ueber der Quote liegt. */
+function FruehSchein({ frueh, schein }) {
+  const offen = (frueh && frueh.offen) || [];
+  const alt = schein && schein.bilanz && schein.bilanz.schein;
+  return (
+    <div>
+      <FruehMessung frueh={frueh} />
+      {offen.length === 0 ? (
+        <p style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted, lineHeight: 1.7, margin: "0 0 10px" }}>
+          Gerade kein offener Früh-Tipp. Neue entstehen 1 bis 6 Tage vor Anpfiff, für die
+          Sonntagsspiele meist dienstags &ndash; nur dort, wo das Modell mindestens
+          {" "}{Math.round(((frueh && frueh.regeln && frueh.regeln.schwelle) || 0.05) * 100)} Punkte über der Quote liegt.
+        </p>
+      ) : offen.map((t) => {
+        const ko = new Date(t.ko);
+        const bewegt = t.p_markt_jetzt === null ? null : t.p_markt_jetzt - t.p_markt;
+        return (
+          <div key={t.key} className="cako-rein" style={{
+            padding: "11px 13px", marginBottom: 7, borderRadius: 12, background: C.surface,
+            border: `1px solid ${C.line}`,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+              <TeamChip code={t.team} gross={38} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: FONT.head, fontWeight: 700, fontSize: 19, textTransform: "uppercase", color: C.text, lineHeight: 1.1 }}>
+                  {namensTeile(t.team)[1]}
+                </div>
+                <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 2 }}>
+                  {t.heim ? "gegen" : "bei"} {name(t.gegner)} &middot; {isNaN(ko) ? "" : ZEIT_DE.format(ko).replace(",", "")}
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 24, color: C.gold, lineHeight: 1 }}>{t.quote.toFixed(2)}</div>
+                <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, marginTop: 3 }}>
+                  jetzt {t.quote_jetzt ? t.quote_jetzt.toFixed(2) : "–"}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: FONT.mono, fontSize: 10, color: C.muted }}>
+              <span>Modell {pct(t.p_modell)} &middot; Quote damals {pct(t.p_markt)}</span>
+              <span style={{ color: bewegt === null ? C.muted : bewegt > 0.002 ? C.green : bewegt < -0.002 ? C.red : C.muted }}>
+                {bewegt === null ? "" : `Markt seither ${vz(bewegt * 100, 1)} Pkt`}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+      {alt && (
+        <p style={{ fontFamily: FONT.mono, fontSize: 10, color: C.muted3, lineHeight: 1.7, margin: "10px 0 0" }}>
+          Der bisherige Spieltags-Schein (Einigkeit mit dem Markt, Quote ab 1,30) verlor im
+          Zehn-Jahres-Test 4,7 % je Wette und läuft nur noch im Hintergrund weiter: diese Saison
+          {" "}{alt.treffer}/{alt.n} getroffen{alt.roi !== null ? `, ${vz(alt.roi * 100, 1)} %` : ""}.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function TippscheinTab({ data, model }) {
   const wochen = useMemo(
     () => [...new Set(data.schedule.filter((g) => g.hs === null).map((g) => g.w))].sort((a, b) => a - b),
@@ -1568,9 +1692,9 @@ function TippscheinTab({ data, model }) {
 
   return (
     <div style={{ padding: "14px 16px 40px" }}>
-      <Abschnitt titel="Schein der Woche"
-                 hinweis="Vorgerechnet aus den Regeln unten: nur Tipps, bei denen Modell und Markt denselben Sieger sehen, Einzelwetten statt Kombi, Einsatz gedeckelt bei 2 % der Rechengröße. Einheiten, kein Geld.">
-        <Wochenschein schein={data.schein} />
+      <Abschnitt titel="Früh-Schein"
+                 hinweis="Testlauf seit November 2026. Wo unser Modell 1 bis 6 Tage vor Anpfiff mindestens 5 Punkte über der Quote liegt (Quote ab 1,30), wird der Tipp mit der Quote dieses Moments eingefroren. In den Wochen 1 bis 8 bewegte sich der Markt danach im Schnitt 1,5 Punkte auf das Modell zu - ob das hält, zeigt diese Messung. Kein belegter Vorteil, keine Empfehlung.">
+        <FruehSchein frueh={data.frueh} schein={data.schein} />
       </Abschnitt>
 
       <Abschnitt titel="Selbst zusammenstellen"
@@ -1690,7 +1814,7 @@ function TippscheinTab({ data, model }) {
         fontFamily: FONT.mono, fontSize: 11, color: C.muted, cursor: "pointer",
       }}>
         <input type="checkbox" checked={nurPositiv} onChange={(e) => setNurPositiv(e.target.checked)} />
-        nur Tipps mit positivem Erwartungswert zeigen
+        nur Tipps mit positivem Erwartungswert (nach Modell) zeigen
         {versteckt > 0 && <span style={{ color: C.muted3 }}>({versteckt} ausgeblendet)</span>}
       </label>
 
@@ -1757,6 +1881,7 @@ function TippscheinTab({ data, model }) {
 /* ------------------------------------------------------------- Matchup */
 
 const MERKMAL_LABEL = {
+  mkt_diff: "Markt-Rating",
   elo_diff: "Elo / Form", qb_diff: "QB-Rating", off_diff: "Offense-EPA",
   def_diff: "Defense-EPA", cpoe_diff: "CPOE", rest_diff: "Ruhetage",
   inj_diff: "Verletzungen", qb_new_diff: "QB ohne Historie", bye_diff: "Bye-Woche",
@@ -2006,10 +2131,12 @@ function MatchupTab({ data, model, ki }) {
         background: `linear-gradient(100deg, ${alpha(g.a, 0.28)} 0%, ${C.surface} 42%, ${C.surface} 58%, ${alpha(g.h, 0.28)} 100%)`,
       }}>
         {(() => {
-          const pH = pTipp === null ? null : zeigtHeim ? pTipp : 1 - pTipp;
+          // Prognose = Quote (ohne Quote das Modell); das Modell steht darunter
+          const pModellHeim = pTipp === null ? null : zeigtHeim ? pTipp : 1 - pTipp;
+          const pH = pMarktHome !== null ? pMarktHome : pModellHeim;
           const seite = (c, p_, rechts) => {
             const [stadt, spitz] = namensTeile(c);
-            const vorn = (c === g.h) === zeigtHeim;
+            const vorn = pH !== null && (c === g.h) === (pH >= 0.5);
             return (
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: rechts ? "flex-end" : "flex-start", textAlign: rechts ? "right" : "left" }}>
                 <TeamChip code={c} gross={54} />
@@ -2040,8 +2167,11 @@ function MatchupTab({ data, model, ki }) {
         })()}
         <div style={{ padding: "10px 16px 13px", borderTop: `1px solid ${C.line}`, background: "rgba(0,0,0,0.18)",
                       fontFamily: FONT.mono, fontSize: 11, color: C.muted, lineHeight: 1.8 }}>
-          Markt: {pMarktHome === null ? "keine Quote" :
-            `${pMarktHome >= 0.5 ? g.h : g.a} ${pct(Math.max(pMarktHome, 1 - pMarktHome), 1)}`}
+          Prognose: {pMarktHome === null ? "noch keine Quote, oben steht das Modell" :
+            `Marktquote ${pMarktHome >= 0.5 ? g.h : g.a} ${pct(Math.max(pMarktHome, 1 - pMarktHome), 1)}`}
+          <br />Unser Modell: {pTipp === null ? "–" : `${zeigtHeim ? g.h : g.a} ${pct(pTipp, 1)}`}
+          {pMarktHome !== null && pTipp !== null && ((zeigtHeim ? g.h : g.a) !== (pMarktHome >= 0.5 ? g.h : g.a))
+            ? <span style={{ color: C.red }}> &middot; sieht einen anderen Sieger</span> : null}
           {an && an.edge ? <><br />Abstand zum Markt: {an.edge.edge > 0 ? "+" : ""}{an.edge.edge} Punkte</> : null}
           {an ? <><br />Streuung der Prognose: &plusmn;{an.sd} &middot; Vertrauen {an.conf}</> : null}
           {pick && pick.st === "fix" ? <><br />Pick eingefroren &ndash; wird nicht mehr neu gerechnet</> : null}
@@ -2729,6 +2859,30 @@ function VegasDuellTab({ data }) {
           </p>
         )}
       </Abschnitt>
+
+      {data.frueh && (
+        <Abschnitt titel="Früh-Messung"
+                   hinweis="Modell und Quote werden 1 bis 6 Tage vor Anpfiff eingefroren. Gemessen wird, ob sich der Markt bis zum Anpfiff auf die Seite bewegt, die das Modell höher sah. Positive Bewegung heißt: das Modell wusste etwas, bevor es eingepreist war. Ab etwa 100 Spielen und t über 2 belastbar.">
+          <FruehMessung frueh={data.frueh} />
+        </Abschnitt>
+      )}
+
+      {data.ki_bewegung && (
+        <Abschnitt titel="KI an der Marktbewegung"
+                   hinweis="Für jede Anpassung der KI-Recherche wird der Marktstand im Moment der Recherche festgehalten. Zieht der Markt danach in die Richtung, in die die KI das Modell geschoben hat, war sie schneller als der Markt.">
+          {data.ki_bewegung.n ? (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Messwert titel="Bewegung in KI-Richtung" wert={`${vz(data.ki_bewegung.bewegung)} Pkt`}
+                        farbe_={data.ki_bewegung.bewegung > 0 ? C.green : C.red}
+                        unter={`${data.ki_bewegung.n} Anpassungen · t = ${data.ki_bewegung.t ?? "–"} · mit KI ${data.ki_bewegung.mit_ki} %, gegen ${data.ki_bewegung.gegen_ki} %`} />
+            </div>
+          ) : (
+            <p style={{ fontFamily: FONT.mono, fontSize: 11, color: C.muted, margin: 0 }}>
+              Läuft seit November 2026, {data.ki_bewegung.gesamt} Anpassungen festgehalten, noch keine angepfiffen.
+            </p>
+          )}
+        </Abschnitt>
+      )}
 
       {data.edge_sources && (
         <Abschnitt

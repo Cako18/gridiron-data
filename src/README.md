@@ -26,7 +26,7 @@ gerendert, ohne Konsolenfehler.
 | Einzelanalyse per Claude-API | Der Aufruf im alten Bundle sendet keinen `x-api-key`. Auf GitHub Pages schlaegt er immer fehl - toter Code. (Immerhin: es liegt damit auch kein Schluessel im oeffentlichen Bundle.) |
 | Archetyp-Korrelationen | `Saisonstart` korreliert mit 0,72 zu `Heimfavorit` und 0,70 zu `Enges Spiel` - weil die Marke frueh in der Saison auf jedes Spiel zutrifft. Ein Artefakt, keine Erkenntnis. |
 
-**Live laeuft `app28.js`** (TV-Look, seit 22.09.2026). Der Neuaufbau ging
+**Live laeuft `app30.js`** (seit 01.11.2026: Prognose = Quote, Früh-Schein, Markt-Rating; davor `app29.js`, TV-Look seit 22.09.2026). Der Neuaufbau ging
 am selben Tag als `app27.js` online, vorgezogen fuer das QB-Ranking. Der
 Seite-an-Seite-Vergleich mit identischem Feed
 (`pruef/vergleich2.mjs`) war bestanden. Zwei Abweichungen zur alten Seite
@@ -112,10 +112,12 @@ Die App liest zwei Dateien von `raw.githubusercontent.com`:
 |---|---|
 | `generated` | Zeitstempel des Pipelinelaufs |
 | `schedule[]` | `w` Woche, `d` Datum, `t` Anstoss (ET), `a`/`h` Teams, `ar`/`hr` Ruhetage, `dv` Divisionsspiel, `as`/`hs` Punkte (`null` = offen), `mh`/`ma` Quoten |
-| `teams{}` | `elo`, `off_epa`, `def_epa`, `cpoe`, `inj`, `qb`, `qb_new`, `qb_name` |
+| `teams{}` | `elo`, `off_epa`, `def_epa`, `cpoe`, `inj`, `qb`, `qb_new`, `qb_name`, `mr` (Markt-Rating, seit Nov. 2026), `qb_verletzt` |
 | `picks{}` | eingefrorene Prognosen: `pick`, `p`, `vp`, `pm`, `src`, `st` (`fix` = festgeschrieben) |
 | `analysis{}` | je Spiel: `tags`, `sd`, `conf`, `edge`, `arch_hit` |
 | `schein{}` | Wochenschein: `tipps[]` (`pick`, `p`, `p_markt`, `quote`, `ev`, `ev_markt`, `einsatz`, `gruende[]`, `fix`), `ev_summe`, `ev_markt_summe`, `regeln`, `bilanz` (schein gegen vergleich) |
+| `frueh{}` | Früh-Messung: `n`, `korr`, `t`, `bewegung` (Punkte zur Modellseite), `zu_uns`/`weg` (%), `wetten` (`n`, `treffer`, `roi`, `bewegung`), `offen[]` (aktueller Früh-Schein mit `quote`, `quote_jetzt`, `p_modell`, `p_markt`, `p_markt_jetzt`), `regeln` |
+| `ki_bewegung{}` | `n`, `gesamt`, `bewegung` (Punkte in KI-Richtung), `mit_ki`/`gegen_ki` (%), `t` |
 | `qbs{}` | je Team `starter` und `backup` (`n` Name, `r` Modellwert, `roh` Rohwert, `starts`, `neu`, `form`, `stil`), `ausfall` = Siegchance mit minus ohne Starter, `p_mit` |
 | `duel{}` | Bilanz gegen den Markt, Kalibrierung, CLV, `ki` = Zwischenstand Modell gegen Modell+KI |
 | `line_moves{}`, `depth{}`, `lineups{}`, `proj{}` | Zusatzdaten der uebrigen Tabs |
@@ -170,6 +172,13 @@ die logistische Regression, nachgerechnet in `predictHome()`.
    Starter weiter. Doubtful ersetzt nicht: in Woche 2/2026 stand Tagovailoa
    so im Bericht, gespielt hat Cooper Rush - Doubtful ist also auch fuer den
    Ersatz ein Ausschlussgrund, nur notfalls wird so einer gewaehlt.
+
+10. **Die Prognose ist die Quote, das Modell die zweite Meinung.** Über zehn
+    Jahre traf der Markt 66,5 %, das Modell 64,5 %, und Modell plus Quote war
+    nicht besser als die Quote allein. Eine Seite, die die schlechtere Zahl groß
+    zeigt, führt ihre Leser in die Irre. BANK und Münzwurf beziehen sich deshalb
+    auf die Prognose; „Modell dagegen" markiert, wo das Modell einen anderen
+    Sieger sieht. `prognose()` in `nfl-predictor.jsx`.
 
 ## Altbestand
 
