@@ -118,5 +118,5 @@ key,model_pick,vegas_pick,locked,p_model,p_mkt_lock,edge_src,status
 8-LAC-LA,LA,LA,2026-11-01T17:56+00:00,0.8291,0.7002,elo_diff,fix
 8-KC-DEN,DEN,KC,2026-11-01T17:56+00:00,0.5140,0.4948,elo_diff,fix
 8-NE-MIA,NE,NE,2026-11-01T17:56+00:00,0.7680,0.7415,mkt_diff,fix
-8-PHI-WAS,WAS,WAS,2026-11-01T18:57+00:00,0.5579,0.7002,mkt_diff,offen
-8-CHI-SEA,SEA,SEA,2026-11-01T18:57+00:00,0.5660,0.6000,inj_diff,offen
+8-PHI-WAS,WAS,WAS,2026-11-01T20:32+00:00,0.5579,0.7002,mkt_diff,offen
+8-CHI-SEA,SEA,SEA,2026-11-01T20:32+00:00,0.5660,0.6000,inj_diff,offen
