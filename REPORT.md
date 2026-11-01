@@ -16,7 +16,7 @@ Stand: 2026-11-01 · Saison 2026 · Modell trainiert auf 4105 Spielen (2026-11-0
 - Rams über Chargers – 83 % **[BANK]** · KI • 83 %
 - Broncos über Chiefs – 51 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI • 51 %
 - Patriots über Dolphins – 77 % **[BANK]** · KI • 77 %
-- Commanders über Eagles – 56 % **[MÜNZWURF]** · KI ▲ 59 %
+- Commanders über Eagles – 56 % **[MÜNZWURF]** · KI • 56 %
 **2026-11-02**
 - Seahawks über Bears – 57 % **[MÜNZWURF]** · KI • 57 %
 
