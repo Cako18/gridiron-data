@@ -34,12 +34,12 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 - 49ers: Ø 13.2 Siege · Playoffs 99 % · Division 89 %
 - Bills: Ø 12.9 Siege · Playoffs 99 % · Division 86 %
-- Bengals: Ø 12.2 Siege · Playoffs 95 % · Division 75 %
+- Bengals: Ø 12.3 Siege · Playoffs 95 % · Division 77 %
 - Jaguars: Ø 12.2 Siege · Playoffs 98 % · Division 95 %
 - Broncos: Ø 11.8 Siege · Playoffs 93 % · Division 65 %
 - Vikings: Ø 11.8 Siege · Playoffs 92 % · Division 46 %
 - Lions: Ø 11.5 Siege · Playoffs 89 % · Division 36 %
-- Chiefs: Ø 11.0 Siege · Playoffs 82 % · Division 34 %
+- Chiefs: Ø 11.0 Siege · Playoffs 83 % · Division 34 %
 
 ## Vegas-Duell
 
