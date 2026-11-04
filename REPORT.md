@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-11-03 · Saison 2026 · Modell trainiert auf 4118 Spielen (2026-11-03)
+Stand: 2026-11-04 · Saison 2026 · Modell trainiert auf 4118 Spielen (2026-11-04)
 
 ## Woche 9 – Picks
 
@@ -18,7 +18,7 @@ Stand: 2026-11-03 · Saison 2026 · Modell trainiert auf 4118 Spielen (2026-11-0
 - Texans über Chargers – 75 % **[BANK]**
 - 49ers über Raiders – 82 % **[BANK]**
 - Patriots über Packers – 64 %
-- Seahawks über Cardinals – 81 % **[BANK]**
+- Seahawks über Cardinals – 82 % **[BANK]**
 - Bears über Buccaneers – 72 % **[BANK]**
 **2026-11-09**
 - Bills über Vikings – 54 % **[MÜNZWURF]**
@@ -49,14 +49,14 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- 49ers: Ø 13.2 Siege · Playoffs 99 % · Division 94 %
+- 49ers: Ø 13.2 Siege · Playoffs 99 % · Division 93 %
 - Bills: Ø 12.9 Siege · Playoffs 99 % · Division 85 %
 - Bengals: Ø 12.3 Siege · Playoffs 96 % · Division 77 %
 - Jaguars: Ø 12.2 Siege · Playoffs 98 % · Division 95 %
 - Broncos: Ø 11.8 Siege · Playoffs 93 % · Division 64 %
 - Vikings: Ø 11.8 Siege · Playoffs 92 % · Division 40 %
 - Lions: Ø 11.4 Siege · Playoffs 88 % · Division 32 %
-- Bears: Ø 11.2 Siege · Playoffs 87 % · Division 25 %
+- Bears: Ø 11.2 Siege · Playoffs 86 % · Division 25 %
 
 ## Vegas-Duell
 
