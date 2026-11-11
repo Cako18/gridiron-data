@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-11-10 · Saison 2026 · Modell trainiert auf 4133 Spielen (2026-11-10)
+Stand: 2026-11-11 · Saison 2026 · Modell trainiert auf 4133 Spielen (2026-11-11)
 
 ## Woche 10 – Picks
 
@@ -10,17 +10,17 @@ Stand: 2026-11-10 · Saison 2026 · Modell trainiert auf 4133 Spielen (2026-11-1
 - Lions über Patriots – 57 % **[MÜNZWURF]**
 - Chiefs über Falcons – 68 %
 - Texans über Browns – 72 % **[BANK]**
-- Packers über Vikings – 67 %
+- Packers über Vikings – 64 %
 - Colts über Dolphins – 61 %
 - Saints über Panthers – 57 % **[MÜNZWURF]**
 - Bills über Jets – 85 % **[BANK]**
 - Jaguars über Titans – 87 % **[BANK]**
-- Rams über Cardinals – 77 % **[BANK]**
-- Seahawks über Raiders – 59 %
+- Rams über Cardinals – 76 % **[BANK]**
+- Seahawks über Raiders – 64 %
 - 49ers über Cowboys – 58 %
 - Bengals über Steelers – 71 % **[BANK]**
 **2026-11-16**
-- Ravens über Chargers – 69 %
+- Ravens über Chargers – 60 %
 
 5 BANK-Picks (gemessen 76,9 %) · 2 Münzwürfe (59,2 %) · 0 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
@@ -48,13 +48,13 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 ## Saisonprojektion (10.000 Simulationen)
 
 - Bills: Ø 13.6 Siege · Playoffs 100 % · Division 98 %
-- 49ers: Ø 13.2 Siege · Playoffs 99 % · Division 92 %
-- Bengals: Ø 12.9 Siege · Playoffs 99 % · Division 83 %
+- 49ers: Ø 13.1 Siege · Playoffs 98 % · Division 92 %
+- Bengals: Ø 13.0 Siege · Playoffs 99 % · Division 82 %
 - Jaguars: Ø 12.9 Siege · Playoffs 99 % · Division 97 %
-- Broncos: Ø 12.2 Siege · Playoffs 97 % · Division 68 %
-- Bears: Ø 11.7 Siege · Playoffs 91 % · Division 43 %
-- Lions: Ø 11.3 Siege · Playoffs 83 % · Division 31 %
-- Chiefs: Ø 11.3 Siege · Playoffs 91 % · Division 31 %
+- Broncos: Ø 12.3 Siege · Playoffs 98 % · Division 69 %
+- Bears: Ø 11.7 Siege · Playoffs 90 % · Division 42 %
+- Chiefs: Ø 11.4 Siege · Playoffs 91 % · Division 31 %
+- Lions: Ø 11.2 Siege · Playoffs 82 % · Division 30 %
 
 ## Vegas-Duell
 
