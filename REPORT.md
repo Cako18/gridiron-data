@@ -1,26 +1,26 @@
 # Gridiron Wochenreport
 
-Stand: 2026-11-11 · Saison 2026 · Modell trainiert auf 4133 Spielen (2026-11-11)
+Stand: 2026-11-12 · Saison 2026 · Modell trainiert auf 4133 Spielen (2026-11-12)
 
 ## Woche 10 – Picks
 
 **2026-11-12**
-- Giants über Commanders – 58 %
+- Giants über Commanders – 58 % · KI • 58 %
 **2026-11-15**
-- Lions über Patriots – 57 % **[MÜNZWURF]**
-- Chiefs über Falcons – 68 %
-- Texans über Browns – 72 % **[BANK]**
-- Packers über Vikings – 64 %
-- Colts über Dolphins – 61 %
-- Saints über Panthers – 57 % **[MÜNZWURF]**
-- Bills über Jets – 85 % **[BANK]**
-- Jaguars über Titans – 87 % **[BANK]**
-- Rams über Cardinals – 76 % **[BANK]**
-- Seahawks über Raiders – 64 %
-- 49ers über Cowboys – 58 %
-- Bengals über Steelers – 71 % **[BANK]**
+- Lions über Patriots – 57 % **[MÜNZWURF]** · KI • 57 %
+- Chiefs über Falcons – 68 % · KI • 68 %
+- Texans über Browns – 72 % **[BANK]** · KI ▼ 71 %
+- Packers über Vikings – 64 % · KI ▼ 63 %
+- Colts über Dolphins – 61 % · KI ▲ 65 %
+- Saints über Panthers – 57 % **[MÜNZWURF]** · KI • 57 %
+- Bills über Jets – 85 % **[BANK]** · KI • 85 %
+- Jaguars über Titans – 87 % **[BANK]** · KI • 87 %
+- Rams über Cardinals – 76 % **[BANK]** · KI ▲ 78 %
+- Seahawks über Raiders – 64 % · KI ▲ 67 %
+- 49ers über Cowboys – 58 % · KI • 58 %
+- Bengals über Steelers – 71 % **[BANK]** · KI • 71 %
 **2026-11-16**
-- Ravens über Chargers – 60 %
+- Ravens über Chargers – 60 % · KI ▼ 55 %
 
 5 BANK-Picks (gemessen 76,9 %) · 2 Münzwürfe (59,2 %) · 0 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
@@ -30,8 +30,8 @@ Stand: 2026-11-11 · Saison 2026 · Modell trainiert auf 4133 Spielen (2026-11-1
 - ▼ Patriots: -41 (jetzt 1560)
 - ▲ Bills: +29 (jetzt 1693)
 - ▼ Vikings: -29 (jetzt 1587)
-- ▼ Ravens: -25 (jetzt 1473)
-- ▲ Jaguars: +25 (jetzt 1637)
+- ▼ Chargers: -24 (jetzt 1369)
+- ▲ Texans: +24 (jetzt 1538)
 
 ## Wochenauswertung – Woche 9
 
