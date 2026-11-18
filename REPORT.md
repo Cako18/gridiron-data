@@ -1,6 +1,6 @@
 # Gridiron Wochenreport
 
-Stand: 2026-11-17 · Saison 2026 · Modell trainiert auf 4147 Spielen (2026-11-17)
+Stand: 2026-11-18 · Saison 2026 · Modell trainiert auf 4147 Spielen (2026-11-18)
 
 ## Woche 11 – Picks
 
@@ -17,7 +17,7 @@ Stand: 2026-11-17 · Saison 2026 · Modell trainiert auf 4147 Spielen (2026-11-1
 - Chargers über Jets – 59 %
 - Broncos über Raiders – 82 % **[BANK]**
 - Steelers über Eagles – 60 %
-- 49ers über Vikings – 77 % **[BANK]**
+- 49ers über Vikings – 76 % **[BANK]**
 **2026-11-23**
 - Bengals über Commanders – 71 % **[BANK]**
 
@@ -52,12 +52,12 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 - Bills: Ø 13.9 Siege · Playoffs 100 % · Division 100 %
 - 49ers: Ø 13.8 Siege · Playoffs 100 % · Division 94 %
-- Jaguars: Ø 13.1 Siege · Playoffs 100 % · Division 100 %
-- Bengals: Ø 13.0 Siege · Playoffs 99 % · Division 90 %
+- Bengals: Ø 13.0 Siege · Playoffs 100 % · Division 91 %
+- Jaguars: Ø 13.0 Siege · Playoffs 100 % · Division 100 %
 - Broncos: Ø 12.7 Siege · Playoffs 100 % · Division 72 %
-- Lions: Ø 12.1 Siege · Playoffs 93 % · Division 47 %
-- Bears: Ø 11.8 Siege · Playoffs 91 % · Division 36 %
-- Chiefs: Ø 11.7 Siege · Playoffs 98 % · Division 28 %
+- Lions: Ø 12.1 Siege · Playoffs 93 % · Division 46 %
+- Bears: Ø 11.8 Siege · Playoffs 90 % · Division 35 %
+- Chiefs: Ø 11.7 Siege · Playoffs 97 % · Division 28 %
 
 ## Vegas-Duell
 
