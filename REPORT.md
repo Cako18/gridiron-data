@@ -5,7 +5,7 @@ Stand: 2026-11-19 · Saison 2026 · Modell trainiert auf 4147 Spielen (2026-11-1
 ## Woche 11 – Picks
 
 **2026-11-19**
-- Texans über Colts – 80 % **[BANK]** · KI • 80 %
+- Texans über Colts – 80 % **[BANK]** · KI ▲ 81 %
 **2026-11-22**
 - Bills über Dolphins – 91 % **[BANK]** · KI • 91 %
 - Panthers über Ravens – 52 % **[MÜNZWURF]** · KI ▲ 54 %
