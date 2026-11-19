@@ -5,23 +5,23 @@ Stand: 2026-11-19 · Saison 2026 · Modell trainiert auf 4147 Spielen (2026-11-1
 ## Woche 11 – Picks
 
 **2026-11-19**
-- Texans über Colts – 77 % **[BANK]** · KI • 77 %
+- Texans über Colts – 80 % **[BANK]** · KI • 80 %
 **2026-11-22**
-- Bills über Dolphins – 92 % **[BANK]** · KI • 92 %
-- Ravens über Panthers – 52 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI ▼ 50 %
-- Bears über Saints – 81 % **[BANK]** · KI • 81 %
-- Cowboys über Titans – 80 % **[BANK]** · KI • 80 %
-- Lions über Buccaneers – 71 % **[BANK]** · KI ▲ 73 %
-- Chiefs über Cardinals – 86 % **[BANK]** · KI • 86 %
-- Jaguars über Giants – 76 % **[BANK]** · KI • 76 %
-- Chargers über Jets – 59 % · KI ▲ 60 %
-- Broncos über Raiders – 82 % **[BANK]** · KI • 82 %
+- Bills über Dolphins – 91 % **[BANK]** · KI • 91 %
+- Panthers über Ravens – 52 % **[MÜNZWURF]** · KI ▲ 54 %
+- Bears über Saints – 77 % **[BANK]** · KI • 77 %
+- Cowboys über Titans – 83 % **[BANK]** · KI • 83 %
+- Lions über Buccaneers – 75 % **[BANK]** · KI ▲ 77 %
+- Chiefs über Cardinals – 85 % **[BANK]** · KI • 85 %
+- Jaguars über Giants – 79 % **[BANK]** · KI • 79 %
+- Chargers über Jets – 62 % · KI ▲ 63 %
+- Broncos über Raiders – 81 % **[BANK]** · KI • 81 %
 - Steelers über Eagles – 60 % · KI • 60 %
-- 49ers über Vikings – 76 % **[BANK]** · KI • 76 %
+- 49ers über Vikings – 68 % · KI • 68 %
 **2026-11-23**
-- Bengals über Commanders – 71 % **[BANK]** · KI • 71 %
+- Bengals über Commanders – 73 % **[BANK]** · KI • 73 %
 
-10 BANK-Picks (gemessen 76,9 %) · 0 Münzwürfe (59,2 %) · 1 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+9 BANK-Picks (gemessen 76,9 %) · 1 Münzwürfe (59,2 %) · 0 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
@@ -50,14 +50,14 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- Bills: Ø 13.9 Siege · Playoffs 100 % · Division 100 %
-- 49ers: Ø 13.8 Siege · Playoffs 100 % · Division 94 %
-- Bengals: Ø 13.0 Siege · Playoffs 100 % · Division 91 %
-- Jaguars: Ø 13.0 Siege · Playoffs 100 % · Division 100 %
-- Broncos: Ø 12.7 Siege · Playoffs 100 % · Division 72 %
-- Lions: Ø 12.1 Siege · Playoffs 93 % · Division 46 %
-- Bears: Ø 11.8 Siege · Playoffs 90 % · Division 35 %
-- Chiefs: Ø 11.7 Siege · Playoffs 97 % · Division 28 %
+- Bills: Ø 13.9 Siege · Playoffs 100 % · Division 99 %
+- 49ers: Ø 13.7 Siege · Playoffs 100 % · Division 93 %
+- Jaguars: Ø 13.2 Siege · Playoffs 100 % · Division 100 %
+- Bengals: Ø 13.1 Siege · Playoffs 100 % · Division 93 %
+- Broncos: Ø 12.5 Siege · Playoffs 99 % · Division 67 %
+- Lions: Ø 12.1 Siege · Playoffs 92 % · Division 45 %
+- Vikings: Ø 11.8 Siege · Playoffs 89 % · Division 32 %
+- Chiefs: Ø 11.7 Siege · Playoffs 97 % · Division 33 %
 
 ## Vegas-Duell
 
