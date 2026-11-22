@@ -11,11 +11,11 @@ Stand: 2026-11-22 · Saison 2026 · Modell trainiert auf 4148 Spielen (2026-11-2
 - Cowboys über Titans – 79 % **[BANK]** · KI • 79 %
 - Lions über Buccaneers – 76 % **[BANK]** · KI • 76 %
 - Chiefs über Cardinals – 85 % **[BANK]** · KI ▲ 87 %
-- Jaguars über Giants – 76 % **[BANK]** · KI • 76 %
+- Steelers über Eagles – 62 % · KI • 62 %
 - Chargers über Jets – 60 % · KI • 60 %
-- Broncos über Raiders – 82 % **[BANK]** · KI ▲ 83 %
-- Steelers über Eagles – 62 % · KI ▼ 59 %
-- 49ers über Vikings – 72 % **[BANK]** · KI ▲ 73 %
+- Broncos über Raiders – 82 % **[BANK]** · KI ▲ 84 %
+- Jaguars über Giants – 76 % **[BANK]** · KI • 76 %
+- 49ers über Vikings – 72 % **[BANK]** · KI • 72 %
 **2026-11-23**
 - Bengals über Commanders – 69 % · KI • 69 %
 
@@ -42,7 +42,7 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 - Bills: Ø 13.8 Siege · Playoffs 100 % · Division 100 %
 - 49ers: Ø 13.5 Siege · Playoffs 99 % · Division 90 %
 - Jaguars: Ø 13.1 Siege · Playoffs 100 % · Division 100 %
-- Bengals: Ø 12.9 Siege · Playoffs 100 % · Division 89 %
+- Bengals: Ø 12.9 Siege · Playoffs 99 % · Division 90 %
 - Broncos: Ø 12.7 Siege · Playoffs 99 % · Division 70 %
 - Lions: Ø 12.1 Siege · Playoffs 90 % · Division 44 %
 - Chiefs: Ø 11.8 Siege · Playoffs 97 % · Division 30 %
