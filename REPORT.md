@@ -39,14 +39,14 @@ Aussagekraft: Einzelne Spieltage schwanken stark – zehn Spiele sagen wenig, di
 
 ## Saisonprojektion (10.000 Simulationen)
 
-- Bills: Ø 13.7 Siege · Playoffs 100 % · Division 99 %
+- Bills: Ø 13.8 Siege · Playoffs 100 % · Division 100 %
 - 49ers: Ø 13.5 Siege · Playoffs 99 % · Division 90 %
 - Jaguars: Ø 13.1 Siege · Playoffs 100 % · Division 100 %
-- Bengals: Ø 12.9 Siege · Playoffs 99 % · Division 89 %
-- Broncos: Ø 12.6 Siege · Playoffs 99 % · Division 70 %
-- Lions: Ø 12.1 Siege · Playoffs 90 % · Division 45 %
-- Chiefs: Ø 11.7 Siege · Playoffs 96 % · Division 30 %
-- Bears: Ø 11.5 Siege · Playoffs 83 % · Division 29 %
+- Bengals: Ø 12.9 Siege · Playoffs 100 % · Division 89 %
+- Broncos: Ø 12.7 Siege · Playoffs 99 % · Division 70 %
+- Lions: Ø 12.1 Siege · Playoffs 90 % · Division 44 %
+- Chiefs: Ø 11.8 Siege · Playoffs 97 % · Division 30 %
+- Bears: Ø 11.5 Siege · Playoffs 83 % · Division 28 %
 
 ## Vegas-Duell
 
