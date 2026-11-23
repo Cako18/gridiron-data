@@ -123,7 +123,7 @@ woche,key,art,pick,p,quote,ev,einsatz,locked,p_markt,status
 11,11-TEN-DAL,schein,DAL,0.7903,1.30,0.0274,2.00,2026-11-22T17:09+00:00,0.7405,fix
 11,11-ARI-KC,vergleich,KC,,1.07,,1.00,2026-11-22T17:09+00:00,,fix
 11,11-BAL-CAR,vergleich,CAR,,1.71,,1.00,2026-11-22T17:09+00:00,,fix
-11,11-CIN-WAS,vergleich,CIN,,1.33,,1.00,2026-11-23T10:50+00:00,,offen
+11,11-CIN-WAS,vergleich,CIN,,1.33,,1.00,2026-11-23T17:59+00:00,,offen
 11,11-IND-HOU,vergleich,HOU,,1.14,,1.00,2026-11-19T22:40+00:00,,offen
 11,11-JAX-NYG,vergleich,JAX,,1.38,,1.00,2026-11-22T17:09+00:00,,fix
 11,11-LV-DEN,vergleich,DEN,,1.17,,1.00,2026-11-22T19:44+00:00,,fix
