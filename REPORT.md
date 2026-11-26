@@ -1,32 +1,32 @@
 # Gridiron Wochenreport
 
-Stand: 2026-11-25 · Saison 2026 · Modell trainiert auf 4160 Spielen (2026-11-25)
+Stand: 2026-11-26 · Saison 2026 · Modell trainiert auf 4160 Spielen (2026-11-26)
 
 ## Woche 12 – Picks
 
 **2026-11-25**
-- Rams über Packers – 66 %
+- Rams über Packers – 66 % · KI • 66 %
 **2026-11-26**
-- Lions über Bears – 59 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
-- Cowboys über Eagles – 73 % **[BANK]**
-- Bills über Chiefs – 63 %
+- Lions über Bears – 59 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]** · KI • 59 %
+- Cowboys über Eagles – 73 % **[BANK]** · KI • 73 %
+- Bills über Chiefs – 63 % · KI • 63 %
 **2026-11-27**
-- Broncos über Steelers – 58 % **[MÜNZWURF]**
+- Broncos über Steelers – 58 % **[MÜNZWURF]** · KI ▲ 62 %
 **2026-11-29**
-- Bengals über Saints – 85 % **[BANK]**
-- Texans über Ravens – 72 % **[BANK]**
-- Giants über Colts – 52 % **[MÜNZWURF]**
-- Jaguars über Titans – 92 % **[BANK]**
-- Jets über Dolphins – 54 % **[MÜNZWURF]**
-- Vikings über Falcons – 74 % **[BANK]**
-- Patriots über Chargers – 59 % **[GEGEN DEN MARKT - historisch hatte der Markt 57 % recht]**
-- Commanders über Cardinals – 60 %
-- 49ers über Seahawks – 65 %
-- Browns über Raiders – 62 %
+- Bengals über Saints – 85 % **[BANK]** · KI • 85 %
+- Texans über Ravens – 72 % **[BANK]** · KI • 72 %
+- Giants über Colts – 52 % **[MÜNZWURF]** · KI ▼ 50 %
+- Jaguars über Titans – 92 % **[BANK]** · KI • 92 %
+- Jets über Dolphins – 54 % **[MÜNZWURF]** · KI • 54 %
+- Vikings über Falcons – 74 % **[BANK]** · KI • 74 %
+- Patriots über Chargers – 59 % · KI ▼ 57 %
+- Commanders über Cardinals – 60 % · KI • 60 %
+- 49ers über Seahawks – 65 % · KI ▼ 62 %
+- Browns über Raiders – 62 % · KI • 62 %
 **2026-11-30**
-- Buccaneers über Panthers – 56 % **[MÜNZWURF]**
+- Buccaneers über Panthers – 56 % **[MÜNZWURF]** · KI • 56 %
 
-5 BANK-Picks (gemessen 76,9 %) · 4 Münzwürfe (59,2 %) · 2 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
+5 BANK-Picks (gemessen 76,9 %) · 4 Münzwürfe (59,2 %) · 1 gegen den Markt (Modell dort nur 42,7 % - im Zweifel dem Markt folgen)
 
 ## Elo-Bewegungen (letzte 7 Tage)
 
